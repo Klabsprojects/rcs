@@ -11,10 +11,9 @@ const groceryOptions = [
 const DietPlanner = () => {
   const [userInfoList, setUserInfoList] = useState([]);
   const [selectedUserIndex, setSelectedUserIndex] = useState(null);
+  const [expandedUserIndex, setExpandedUserIndex] = useState(null);
   const [formInputs, setFormInputs] = useState({ type: '', role: '', dietType: '' });
   const [showModal, setShowModal] = useState(false);
-  const [showPlanModal, setShowPlanModal] = useState(false);
-  const [viewingPlanIndex, setViewingPlanIndex] = useState(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -42,10 +41,8 @@ const DietPlanner = () => {
     setUserInfoList(updatedList);
   };
 
-  const handleViewPlan = (userIndex, planIndex) => {
-    setSelectedUserIndex(userIndex);
-    setViewingPlanIndex(planIndex);
-    setShowPlanModal(true);
+  const handleViewPlan = (userIndex) => {
+    setExpandedUserIndex(expandedUserIndex === userIndex ? null : userIndex);
   };
 
   return (
@@ -101,38 +98,46 @@ const DietPlanner = () => {
 
       <div className="bg-white rounded shadow divide-y">
         {userInfoList.map((user, index) => (
-          <div
-            key={index}
-            className="p-4 hover:bg-gray-100 cursor-pointer flex justify-between"
-            onClick={() => setSelectedUserIndex(index)}
-          >
-            <div>
-              <p className="font-semibold text-gray-800">{user.type} - {user.role} ({user.dietType})</p>
+          <div key={index}>
+            <div 
+              className="p-4 hover:bg-gray-100 cursor-pointer flex justify-between"
+              onClick={() => setSelectedUserIndex(index)}
+            >
+              <div>
+                <p className="font-semibold text-gray-800">{user.type} - {user.role} ({user.dietType})</p>
+              </div>
+              <div className="flex items-center">
+                {user.plans.length > 0 ? (
+                  <button
+                    className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewPlan(index);
+                    }}
+                  >
+                    View Plan
+                  </button>
+                ) : (
+                  <button
+                    className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedUserIndex(index);
+                      setShowModal(true);
+                    }}
+                  >
+                    Add Plan
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex items-center">
-              {user.plans.length > 0 ? (
-                <button
-                  className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleViewPlan(index, 0);
-                  }}
-                >
-                  View Plan
-                </button>
-              ) : (
-                <button
-                  className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedUserIndex(index);
-                    setShowModal(true);
-                  }}
-                >
-                  Add Plan
-                </button>
-              )}
-            </div>
+            
+            {/* Expanded plan details */}
+            {expandedUserIndex === index && user.plans.length > 0 && (
+              <div className="bg-gray-50 p-4 border-t border-gray-200">
+                <PlanDetails plan={user.plans[0]} />
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -156,32 +161,6 @@ const DietPlanner = () => {
                 setShowModal(false);
               }}
             />
-          </div>
-        </div>
-      )}
-
-      {showPlanModal && selectedUserIndex !== null && viewingPlanIndex !== null && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-xl w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">
-                {userInfoList[selectedUserIndex].type} - {userInfoList[selectedUserIndex].role} Diet Plan
-              </h2>
-              <button
-                onClick={() => {
-                  setShowPlanModal(false);
-                  setViewingPlanIndex(null);
-                }}
-                className="text-gray-500 hover:text-gray-800"
-              >
-                ×
-              </button>
-            </div>
-            <div className="bg-gray-50 p-4 rounded border">
-              {selectedUserIndex !== null && viewingPlanIndex !== null && userInfoList[selectedUserIndex]?.plans[viewingPlanIndex] && (
-                <PlanDetails plan={userInfoList[selectedUserIndex].plans[viewingPlanIndex]} />
-              )}
-            </div>
           </div>
         </div>
       )}
