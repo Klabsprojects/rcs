@@ -1,4 +1,4 @@
-// Updated Diet Planner UI with smaller item inputs and full user info in plan listing
+// Updated Diet Planner UI with modal popup for plan creation
 import React, { useState } from 'react';
 
 const groceryOptions = [
@@ -13,6 +13,7 @@ const DietPlanner = () => {
   const [userInfoList, setUserInfoList] = useState([]);
   const [selectedUserIndex, setSelectedUserIndex] = useState(null);
   const [formInputs, setFormInputs] = useState({ type: '', role: '', dietType: '' });
+  const [showModal, setShowModal] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -102,48 +103,69 @@ const DietPlanner = () => {
               <p className="font-semibold text-gray-800">{user.type} - {user.role}</p>
               <p className="text-sm text-gray-600">Diet: {user.dietType}</p>
             </div>
-            <p className="text-sm text-blue-600">Add Plan →</p>
+            <button
+              className="text-sm text-blue-600 hover:underline"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedUserIndex(index);
+                setShowModal(true);
+              }}
+            >
+              Add Plan →
+            </button>
           </div>
         ))}
       </div>
 
-      {selectedUserIndex !== null && (
-        <div className="mt-6">
-          <DietPlannerForm
-            userInfo={userInfoList[selectedUserIndex]}
-            onSavePlan={handleSavePlan}
-          />
-
-          {userInfoList[selectedUserIndex].plans.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-xl font-semibold mb-4">Created Plans</h3>
-              <div className="space-y-4">
-                {userInfoList[selectedUserIndex].plans.map((plan, i) => (
-                  <div key={i} className="p-4 border rounded bg-gray-50">
-                    <p className="font-semibold text-gray-800">
-                      {plan.userType} - {plan.role} ({plan.dietType})
-                    </p>
-                    <p className="text-sm text-gray-700 mt-1">Plan Type: {plan.formType}</p>
-                    {plan.days && (
-                      <p className="text-sm text-gray-600">Days: {plan.days.join(', ')}</p>
-                    )}
-                    <ul className="mt-2 list-disc ml-5 text-sm text-gray-700">
-                      {plan.items.map((item, j) => (
-                        <li key={j}>{item.name} - {item.quantity} {item.unit}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
+      {showModal && selectedUserIndex !== null && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-xl w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Create Diet Plan</h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-gray-500 hover:text-gray-800"
+              >
+                ×
+              </button>
             </div>
-          )}
+            <DietPlannerForm
+              userInfo={userInfoList[selectedUserIndex]}
+              onSavePlan={(plan) => {
+                handleSavePlan(plan);
+                setShowModal(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {selectedUserIndex !== null && userInfoList[selectedUserIndex].plans.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-xl font-semibold mb-4">Created Plans</h3>
+          <div className="space-y-4">
+            {userInfoList[selectedUserIndex].plans.map((plan, i) => (
+              <div key={i} className="p-4 border rounded bg-gray-50">
+                <p className="font-semibold text-gray-800">
+                  {plan.userType} - {plan.role} ({plan.dietType})
+                </p>
+                <p className="text-sm text-gray-700 mt-1">Plan Type: {plan.formType}</p>
+                {plan.days && (
+                  <p className="text-sm text-gray-600">Days: {plan.days.join(', ')}</p>
+                )}
+                <ul className="mt-2 list-disc ml-5 text-sm text-gray-700">
+                  {plan.items.map((item, j) => (
+                    <li key={j}>{item.name} - {item.quantity} {item.unit}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 };
-
-// Define DietPlannerForm inside the same component file
 
 const DietPlannerForm = ({ userInfo, onSavePlan }) => {
   const [formType, setFormType] = useState('per-day');
@@ -157,15 +179,8 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
     setItems(newItems);
   };
 
-  const addItem = () => {
-    setItems([...items, { name: '', quantity: '', unit: 'gram' }]);
-  };
-
-  const removeItem = (index) => {
-    const newItems = [...items];
-    newItems.splice(index, 1);
-    setItems(newItems);
-  };
+  const addItem = () => setItems([...items, { name: '', quantity: '', unit: 'gram' }]);
+  const removeItem = (index) => setItems(items.filter((_, i) => i !== index));
 
   const toggleDay = (day) => {
     setDays((prev) =>
@@ -191,9 +206,7 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
   const allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   return (
-    <div className="p-6 bg-white rounded shadow">
-      <h2 className="text-lg font-semibold mb-4">Create Diet Plan</h2>
-
+    <div>
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan Type</label>
         <div className="flex gap-4">
@@ -229,7 +242,7 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Items Required for per Person</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Items Required per Person</label>
         {items.map((item, index) => (
           <div key={index} className="flex gap-2 mb-2 text-sm">
             <select
@@ -264,12 +277,7 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
               <option value="L">L</option>
             </select>
             {index > 0 && (
-              <button
-                onClick={() => removeItem(index)}
-                className="bg-red-500 text-white px-2 rounded"
-              >
-                ×
-              </button>
+              <button onClick={() => removeItem(index)} className="bg-red-500 text-white px-2 rounded">×</button>
             )}
           </div>
         ))}
