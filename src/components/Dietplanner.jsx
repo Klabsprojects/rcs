@@ -1,4 +1,3 @@
-// Updated Diet Planner UI with modal popup for plan creation
 import React, { useState } from 'react';
 
 const groceryOptions = [
@@ -14,6 +13,8 @@ const DietPlanner = () => {
   const [selectedUserIndex, setSelectedUserIndex] = useState(null);
   const [formInputs, setFormInputs] = useState({ type: '', role: '', dietType: '' });
   const [showModal, setShowModal] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [viewingPlanIndex, setViewingPlanIndex] = useState(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -39,6 +40,12 @@ const DietPlanner = () => {
       dietType: userInfoList[selectedUserIndex].dietType
     });
     setUserInfoList(updatedList);
+  };
+
+  const handleViewPlan = (userIndex, planIndex) => {
+    setSelectedUserIndex(userIndex);
+    setViewingPlanIndex(planIndex);
+    setShowPlanModal(true);
   };
 
   return (
@@ -100,19 +107,32 @@ const DietPlanner = () => {
             onClick={() => setSelectedUserIndex(index)}
           >
             <div>
-              <p className="font-semibold text-gray-800">{user.type} - {user.role}</p>
-              <p className="text-sm text-gray-600">Diet: {user.dietType}</p>
+              <p className="font-semibold text-gray-800">{user.type} - {user.role} ({user.dietType})</p>
             </div>
-            <button
-              className="text-sm text-blue-600 hover:underline"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedUserIndex(index);
-                setShowModal(true);
-              }}
-            >
-              Add Plan →
-            </button>
+            <div className="flex items-center">
+              {user.plans.length > 0 ? (
+                <button
+                  className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewPlan(index, 0);
+                  }}
+                >
+                  View Plan
+                </button>
+              ) : (
+                <button
+                  className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedUserIndex(index);
+                    setShowModal(true);
+                  }}
+                >
+                  Add Plan
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -140,29 +160,69 @@ const DietPlanner = () => {
         </div>
       )}
 
-      {selectedUserIndex !== null && userInfoList[selectedUserIndex].plans.length > 0 && (
-        <div className="mt-6">
-          <h3 className="text-xl font-semibold mb-4">Created Plans</h3>
-          <div className="space-y-4">
-            {userInfoList[selectedUserIndex].plans.map((plan, i) => (
-              <div key={i} className="p-4 border rounded bg-gray-50">
-                <p className="font-semibold text-gray-800">
-                  {plan.userType} - {plan.role} ({plan.dietType})
-                </p>
-                <p className="text-sm text-gray-700 mt-1">Plan Type: {plan.formType}</p>
-                {plan.days && (
-                  <p className="text-sm text-gray-600">Days: {plan.days.join(', ')}</p>
-                )}
-                <ul className="mt-2 list-disc ml-5 text-sm text-gray-700">
-                  {plan.items.map((item, j) => (
-                    <li key={j}>{item.name} - {item.quantity} {item.unit}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+      {showPlanModal && selectedUserIndex !== null && viewingPlanIndex !== null && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-xl w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">
+                {userInfoList[selectedUserIndex].type} - {userInfoList[selectedUserIndex].role} Diet Plan
+              </h2>
+              <button
+                onClick={() => {
+                  setShowPlanModal(false);
+                  setViewingPlanIndex(null);
+                }}
+                className="text-gray-500 hover:text-gray-800"
+              >
+                ×
+              </button>
+            </div>
+            <div className="bg-gray-50 p-4 rounded border">
+              {selectedUserIndex !== null && viewingPlanIndex !== null && userInfoList[selectedUserIndex]?.plans[viewingPlanIndex] && (
+                <PlanDetails plan={userInfoList[selectedUserIndex].plans[viewingPlanIndex]} />
+              )}
+            </div>
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+const PlanDetails = ({ plan }) => {
+  return (
+    <div>
+      <div className="mb-3">
+        <h3 className="font-semibold text-lg">{plan.userType} - {plan.role} ({plan.dietType})</h3>
+        <p className="text-sm text-gray-700">Plan Frequency: {plan.formType}</p>
+        {plan.days && plan.days.length > 0 && (
+          <p className="text-sm text-gray-700">Days: {plan.days.join(', ')}</p>
+        )}
+      </div>
+      
+      <div className="mt-4">
+        <h4 className="font-medium text-gray-800 mb-2">Items Required:</h4>
+        <div className="overflow-hidden rounded border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {plan.items.map((item, i) => (
+                <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                  <td className="px-4 py-3 text-sm text-gray-900">{item.name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{item.quantity}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{item.unit}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };
