@@ -1,19 +1,12 @@
 import React, { useState, useEffect } from 'react';
 
 const IndentCreation = () => {
-  const segmentOptions = [
-    'Class A - Labour - Veg',
-    'Class A - Labour - NonVeg',
-    'Class B - Non Labour - Veg',
-    'Class B - Non Labour - NonVeg'
-  ];
-
   const [segments, setSegments] = useState([
-  { segment: '', nos: '' },
-  { segment: '', nos: '' },
-  { segment: '', nos: '' },
-  { segment: '', nos: '' },
-]);
+    { segment: '', nos: '' },
+    { segment: '', nos: '' },
+    { segment: '', nos: '' },
+    { segment: '', nos: '' },
+  ]);
 
   const [recentOrders, setRecentOrders] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
@@ -124,16 +117,13 @@ const IndentCreation = () => {
                     <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
                       <td className="border border-gray-300 px-4 py-2">{index + 1}.</td>
                       <td className="border border-gray-300 px-4 py-2">
-                        <select
+                        <input
+                          type="text"
                           className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="Enter User"
                           value={item.segment}
                           onChange={(e) => handleSegmentChange(index, e.target.value)}
-                        >
-                          <option value="">Select</option>
-                          {segmentOptions.map((option, idx) => (
-                            <option key={idx} value={option}>{option}</option>
-                          ))}
-                        </select>
+                        />
                       </td>
                       <td className="border border-gray-300 px-4 py-2">
                         <input
@@ -147,14 +137,6 @@ const IndentCreation = () => {
                   ))}
                 </tbody>
               </table>
-              <div className="mt-2">
-                {/* <button
-                  onClick={addRow}
-                  className="text-sm text-sky-700 hover:underline"
-                >
-                  + Add Segment
-                </button> */}
-              </div>
             </div>
 
             <div className="mt-4 flex justify-end">
@@ -183,7 +165,6 @@ const IndentCreation = () => {
                     <td className="py-2">{formatOrderDate(order.date)}</td>
                     <td className="py-2 text-right">{order.total}</td>
                     <td className="py-2 flex justify-center items-center gap-3">
-                      {/* View Icon */}
                       <button
                         onClick={() => openOrderDetails(order)}
                         title="View"
@@ -194,8 +175,6 @@ const IndentCreation = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7s-8.268-2.943-9.542-7z" />
                         </svg>
                       </button>
-
-                      {/* Reverse Icon */}
                       <button
                         onClick={() => alert('Reverse functionality not implemented')}
                         title="Reverse"

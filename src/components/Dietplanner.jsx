@@ -85,7 +85,6 @@ const DietPlanner = () => {
             <option value="">Select</option>
             <option value="veg">Vegetarian</option>
             <option value="non-veg">Non-Vegetarian</option>
-            <option value="both">Both</option>
           </select>
         </div>
         <button
@@ -309,10 +308,10 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
               onChange={(e) => handleItemChange(index, e)}
               className="w-1/4 border px-2 py-1 rounded"
             >
-              <option value="gram">gram</option>
-              <option value="ml">ml</option>
-              <option value="piece">piece</option>
-              <option value="kg">kg</option>
+              <option value="gram">Grams</option>
+              <option value="ml">Ml</option>
+              <option value="piece">Pcs</option>
+              <option value="kg">Kg</option>
               <option value="L">L</option>
             </select>
             {index > 0 && (
