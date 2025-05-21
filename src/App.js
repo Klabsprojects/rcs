@@ -5,6 +5,7 @@ import Header from './components/Header';
 import DietPlanner from './components/Dietplanner';
 import Dashboard from './components/Dashboard';
 import IndentCreation from './components/Indent';
+import UserCreation from './components/UserCreation';
 
 function App() {
   return (
@@ -17,7 +18,7 @@ function App() {
             <Route path="/create" element={<DietPlanner />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/indent" element={<IndentCreation />} />
-            
+           <Route path="/user-creation" element={<UserCreation />} />
           </Routes>
         </main>
       </div>
