@@ -1,30 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../services/api';
 
 const UserCreation = () => {
-  // State for form fields
+  // State for form fields - updated to match API
   const [formData, setFormData] = useState({
+    p_id: 'null',
+    name: '',
     username: '',
-    role: 'user',
-    userDivision: '',
-    department: '',
-    contactNumber: '',
-    isActive: true
+    password: '',
+    role: '',
+    mobile: '',
+    department: ''
   });
 
-  // State for created users
+  // State for users list
   const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
 
   // State for form submission and validation
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
+  // Fetch users on component mount
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  // Fetch users from API
+  const fetchUsers = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      
+      const response = await fetch(`${API_BASE_URL}/user`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+      
+      if (result.error === false) {
+        setUsers(result.data);
+      } else {
+        console.error('Failed to fetch users:', result.message);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Handle input changes
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: value
     });
   };
 
@@ -32,23 +68,22 @@ const UserCreation = () => {
   const validateForm = () => {
     const newErrors = {};
     
+    if (!formData.name.trim()) newErrors.name = 'Name is required';
     if (!formData.username.trim()) newErrors.username = 'Username is required';
-    
-    if (!formData.userDivision.trim()) newErrors.userDivision = 'User division is required';
-    
+    if (!formData.password.trim()) newErrors.password = 'Password is required';
+    if (!formData.role.trim()) newErrors.role = 'Role is required';
     if (!formData.department.trim()) newErrors.department = 'Department is required';
-    
-    if (!formData.contactNumber.trim()) {
-      newErrors.contactNumber = 'Contact number is required';
-    } else if (!/^\d{10}$/.test(formData.contactNumber)) {
-      newErrors.contactNumber = 'Contact number must be 10 digits';
+    if (!formData.mobile.trim()) {
+      newErrors.mobile = 'Mobile number is required';
+    } else if (!/^\d{10}$/.test(formData.mobile)) {
+      newErrors.mobile = 'Mobile number must be 10 digits';
     }
     
     return newErrors;
   };
 
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     const formErrors = validateForm();
@@ -60,31 +95,50 @@ const UserCreation = () => {
     setIsSubmitting(true);
     setErrors({});
     
-    // Simulate API call
-    setTimeout(() => {
-      const newUser = {
-        ...formData,
-        id: users.length + 1,
-        createdAt: new Date().toISOString(),
-      };
+    try {
+      const token = localStorage.getItem('authToken');
       
-      setUsers([...users, newUser]);
-      setIsSubmitting(false);
-      setSubmitSuccess(true);
+      const response = await fetch(`${API_BASE_URL}/user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const result = await response.json();
       
-      // Reset form after successful submission
-      setTimeout(() => {
+      if (response.ok && result.error === false) {
+        setSubmitSuccess(true);
+        setShowForm(false);
+        
+        // Reset form
         setFormData({
+          p_id: null,
+          name: '',
           username: '',
-          role: 'user',
-          userDivision: '',
-          department: '',
-          contactNumber: '',
-          isActive: true
+          password: '',
+          role: '',
+          mobile: '',
+          department: ''
         });
-        setSubmitSuccess(false);
-      }, 3000);
-    }, 1000);
+        
+        // Refresh users list
+        await fetchUsers();
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          setSubmitSuccess(false);
+        }, 3000);
+      } else {
+        setErrors({ general: result.message || 'Failed to create user' });
+      }
+    } catch (error) {
+      setErrors({ general: 'Network error. Please try again.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Format date for display
@@ -97,295 +151,323 @@ const UserCreation = () => {
     });
   };
 
-  // Get display name for role
-  const getRoleName = (code) => {
-    const roles = {
-      'admin': 'Administrator',
-      'manager': 'Manager',
-      'user': 'Regular User',
-      'readonly': 'Read-only User'
-    };
-    return roles[code] || code;
-  };
-
   return (
     <div className="bg-gray-50 min-h-screen py-6 px-4 sm:px-6 lg:px-8">
-      <div className="mb-6 text-center">
-        <h1 className="text-3xl font-bold text-sky-900">User Management</h1>
-      </div>
-
-      {/* Status Cards */}
-      <div className="max-w-7xl mx-auto mb-6">
-        <div className="flex justify-center space-x-4">
-          <div className="bg-blue-50 shadow-md rounded-lg p-3 w-32">
-            <div className="text-center">
-              <div className="text-xl font-bold text-blue-600 mb-1">{users.length}</div>
-              <div className="text-gray-700 text-sm font-medium">Total Users</div>
-            </div>
-          </div>
-          <div className="bg-green-50 shadow-md rounded-lg p-3 w-32">
-            <div className="text-center">
-              <div className="text-xl font-bold text-green-600 mb-1">
-                {new Set(users.map(user => user.department.toLowerCase())).size}
-              </div>
-              <div className="text-gray-700 text-sm font-medium">Departments</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Success Message */}
-      {submitSuccess && (
-        <div className="max-w-7xl mx-auto mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">Success!</strong>
-          <span className="block sm:inline"> User has been created successfully.</span>
-        </div>
-      )}
-
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left Side - User Creation Form */}
-          <div className="w-full lg:w-1/3">
-            <div className="bg-white shadow-md rounded-lg overflow-hidden">
-              <div className="px-6 py-4 bg-sky-50 border-b border-sky-100">
-                <h2 className="text-xl font-semibold text-sky-800">Create New User</h2>
-              </div>
-              
-              <div className="p-6">
-                <div className="space-y-4">
-                  {/* Username */}
-                  <div>
-                    <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                      Username *
-                    </label>
-                    <input
-                      type="text"
-                      id="username"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full rounded-md border ${
-                        errors.username ? 'border-red-500' : 'border-gray-300'
-                      } shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500`}
-                    />
-                    {errors.username && (
-                      <p className="mt-1 text-sm text-red-600">{errors.username}</p>
-                    )}
-                  </div>
+        
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-bold text-sky-900">User Management</h1>
+      
+        </div>
 
-                  {/* Contact Number */}
-                  <div>
-                    <label htmlFor="contactNumber" className="block text-sm font-medium text-gray-700">
-                      Contact Number *
-                    </label>
-                    <input
-                      type="text"
-                      id="contactNumber"
-                      name="contactNumber"
-                      value={formData.contactNumber}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full rounded-md border ${
-                        errors.contactNumber ? 'border-red-500' : 'border-gray-300'
-                      } shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500`}
-                      placeholder="10-digit number"
-                    />
-                    {errors.contactNumber && (
-                      <p className="mt-1 text-sm text-red-600">{errors.contactNumber}</p>
-                    )}
-                  </div>
-
-                  {/* User Division */}
-                  <div>
-                    <label htmlFor="userDivision" className="block text-sm font-medium text-gray-700">
-                      User Division *
-                    </label>
-                    <input
-                      type="text"
-                      id="userDivision"
-                      name="userDivision"
-                      value={formData.userDivision}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full rounded-md border ${
-                        errors.userDivision ? 'border-red-500' : 'border-gray-300'
-                      } shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500`}
-                      placeholder="Enter user division"
-                    />
-                    {errors.userDivision && (
-                      <p className="mt-1 text-sm text-red-600">{errors.userDivision}</p>
-                    )}
-                  </div>
-
-                  {/* Department */}
-                  <div>
-                    <label htmlFor="department" className="block text-sm font-medium text-gray-700">
-                      Department *
-                    </label>
-                    <input
-                      type="text"
-                      id="department"
-                      name="department"
-                      value={formData.department}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full rounded-md border ${
-                        errors.department ? 'border-red-500' : 'border-gray-300'
-                      } shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500`}
-                      placeholder="Enter department"
-                    />
-                    {errors.department && (
-                      <p className="mt-1 text-sm text-red-600">{errors.department}</p>
-                    )}
-                  </div>
-
-                  {/* User Role */}
-                  <div>
-                    <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                      User Role *
-                    </label>
-                    <select
-                      id="role"
-                      name="role"
-                      value={formData.role}
-                      onChange={handleChange}
-                      className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                    >
-                      <option value="admin">Administrator</option>
-                      <option value="manager">Manager</option>
-                      <option value="user">Regular User</option>
-                      <option value="readonly">Read-only User</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-                    onClick={() => {
-                      setFormData({
-                        username: '',
-                        role: 'user',
-                        userDivision: '',
-                        department: '',
-                        contactNumber: '',
-                        isActive: true
-                      });
-                      setErrors({});
-                    }}
-                  >
-                    Clear
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={handleSubmit}
-                    className={`inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${
-                      isSubmitting ? 'bg-sky-400' : 'bg-sky-600 hover:bg-sky-700'
-                    } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500`}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Processing...
-                      </>
-                    ) : (
-                      'Create User'
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
+        {/* Success Message */}
+        {submitSuccess && (
+          <div className="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+            <strong className="font-bold">Success!</strong>
+            <span className="block sm:inline"> User has been created successfully.</span>
           </div>
+        )}
+
+        {/* Users List View */}
+        {!showForm && (
+          <div className="bg-white shadow-xl rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
           
-          {/* Right Side - Users Preview */}
-          <div className="w-full lg:w-2/3">
-            <div className="bg-white shadow-md rounded-lg overflow-hidden">
-              <div className="px-6 py-4 bg-sky-50 border-b border-sky-100">
-                <h2 className="text-xl font-semibold text-sky-800">Existing Users</h2>
+              <button
+                onClick={() => setShowForm(true)}
+                className="bg-sky-600 hover:bg-sky-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 flex items-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <span>Add New User</span>
+              </button>
+            </div>
+            
+            {loading ? (
+              <div className="py-16 px-6 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Loading users...</p>
               </div>
-              
+            ) : users.length > 0 ? (
               <div className="overflow-x-auto">
-              {users.length > 0 && (
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        User Info
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Username
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Role / Division
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Role
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Department
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Contact
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Created
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Mobile
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {users.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
+                      <tr key={user.id} className="hover:bg-gray-50 transition-colors duration-200">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 bg-sky-100 rounded-full flex items-center justify-center">
-                              <span className="text-sky-700 font-medium text-sm">
-                                {user.username.substring(0, 2).toUpperCase()}
+                            <div className="flex-shrink-0 h-12 w-12 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center">
+                              <span className="text-white font-semibold text-sm">
+                                {user.name?.charAt(0)?.toUpperCase() || 'U'}
                               </span>
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">
-                                {user.username}
+                                {user.name}
                               </div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{getRoleName(user.role)}</div>
-                          <div className="text-sm text-gray-500">{user.userDivision}</div>
+                          <div className="text-sm text-gray-900">{user.username}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{user.department}</div>
+                          <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-sky-100 text-sky-800">
+                            {user.role}
+                          </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{user.contactNumber}</div>
+                          <div className="text-sm text-gray-900">{user.department || 'N/A'}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatDate(user.createdAt)}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{user.mobile}</div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              )}
               </div>
-              
-              {users.length === 0 && (
-                <div className="py-16 px-6 text-center bg-gray-50">
-                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                  </svg>
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No users</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Start by creating a new user with the form.
-                  </p>
+            ) : (
+              <div className="py-16 px-6 text-center">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Start by creating your first user.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* User Creation Form */}
+        {showForm && (
+          <div className="bg-white shadow-xl rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-sky-800">Create New User</h2>
+              <button
+                onClick={() => {
+                  setShowForm(false);
+                  setErrors({});
+                  setFormData({
+                    p_id: null,
+                    name: '',
+                    username: '',
+                    password: '',
+                    role: '',
+                    mobile: '',
+                    department: ''
+                  });
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-8">
+              {errors.general && (
+                <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-red-600 text-sm">{errors.general}</p>
                 </div>
               )}
-              
-              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-                <div className="text-sm text-gray-700">
-                  Showing <span className="font-medium">{users.length}</span> users
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Name */}
+                <div>
+                  <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-3">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3 border-2 ${
+                      errors.name ? 'border-red-500' : 'border-gray-200'
+                    } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                    placeholder="Enter full name"
+                  />
+                  {errors.name && (
+                    <p className="mt-2 text-sm text-red-600">{errors.name}</p>
+                  )}
                 </div>
+
+                {/* Username */}
+                <div>
+                  <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-3">
+                    Username *
+                  </label>
+                  <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3 border-2 ${
+                      errors.username ? 'border-red-500' : 'border-gray-200'
+                    } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                    placeholder="Enter username"
+                  />
+                  {errors.username && (
+                    <p className="mt-2 text-sm text-red-600">{errors.username}</p>
+                  )}
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-3">
+                    Password *
+                  </label>
+                  <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3 border-2 ${
+                      errors.password ? 'border-red-500' : 'border-gray-200'
+                    } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                    placeholder="Enter password"
+                  />
+                  {errors.password && (
+                    <p className="mt-2 text-sm text-red-600">{errors.password}</p>
+                  )}
+                </div>
+
+                {/* Department */}
+                <div>
+                  <label htmlFor="department" className="block text-sm font-semibold text-gray-700 mb-3">
+                    Department *
+                  </label>
+                  <input
+                    type="text"
+                    id="department"
+                    name="department"
+                    value={formData.department}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3 border-2 ${
+                      errors.department ? 'border-red-500' : 'border-gray-200'
+                    } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                    placeholder="Enter department name"
+                  />
+                  {errors.department && (
+                    <p className="mt-2 text-sm text-red-600">{errors.department}</p>
+                  )}
+                </div>
+
+                {/* Mobile */}
+                <div>
+                  <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-3">
+                    Mobile Number *
+                  </label>
+                  <input
+                    type="text"
+                    id="mobile"
+                    name="mobile"
+                    value={formData.mobile}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3 border-2 ${
+                      errors.mobile ? 'border-red-500' : 'border-gray-200'
+                    } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                    placeholder="Enter 10-digit mobile number"
+                  />
+                  {errors.mobile && (
+                    <p className="mt-2 text-sm text-red-600">{errors.mobile}</p>
+                  )}
+                </div>
+
+                {/* Role */}
+                <div>
+                  <label htmlFor="role" className="block text-sm font-semibold text-gray-700 mb-3">
+                    Role *
+                  </label>
+                  <input
+                    type="text"
+                    id="role"
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3 border-2 ${
+                      errors.role ? 'border-red-500' : 'border-gray-200'
+                    } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                    placeholder="Enter role"
+                  />
+                  {errors.role && (
+                    <p className="mt-2 text-sm text-red-600">{errors.role}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-8 flex justify-end space-x-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData({
+                      p_id: null,
+                      name: '',
+                      username: '',
+                      password: '',
+                      role: '',
+                      mobile: '',
+                      department: ''
+                    });
+                    setErrors({});
+                  }}
+                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-300 font-medium"
+                >
+                  Clear Form
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleSubmit}
+                  className={`px-6 py-3 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-xl font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center space-x-2`}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      <span>Create User</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
