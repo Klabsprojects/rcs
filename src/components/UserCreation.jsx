@@ -4,7 +4,7 @@ import { API_BASE_URL } from '../services/api';
 const UserCreation = () => {
   // State for form fields - updated to match API
   const [formData, setFormData] = useState({
-    p_id: 'null',
+    p_id: null,
     name: '',
     username: '',
     password: '',
