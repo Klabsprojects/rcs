@@ -10,7 +10,8 @@ const UserCreation = () => {
     password: '',
     role: '',
     mobile: '',
-    department: ''
+
+    
   });
 
   // State for users list
@@ -72,7 +73,8 @@ const UserCreation = () => {
     if (!formData.username.trim()) newErrors.username = 'Username is required';
     if (!formData.password.trim()) newErrors.password = 'Password is required';
     if (!formData.role.trim()) newErrors.role = 'Role is required';
-    if (!formData.department.trim()) newErrors.department = 'Department is required';
+
+    
     if (!formData.mobile.trim()) {
       newErrors.mobile = 'Mobile number is required';
     } else if (!/^\d{10}$/.test(formData.mobile)) {
@@ -121,7 +123,7 @@ const UserCreation = () => {
           password: '',
           role: '',
           mobile: '',
-          department: ''
+          
         });
         
         // Refresh users list
@@ -204,9 +206,7 @@ const UserCreation = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Role
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Department
-                      </th>
+                  
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Mobile
                       </th>
@@ -237,9 +237,7 @@ const UserCreation = () => {
                             {user.role}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{user.department || 'N/A'}</div>
-                        </td>
+                      
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{user.mobile}</div>
                         </td>
@@ -278,7 +276,8 @@ const UserCreation = () => {
                     password: '',
                     role: '',
                     mobile: '',
-                    department: ''
+              
+                    
                   });
                 }}
                 className="text-gray-500 hover:text-gray-700"
@@ -300,7 +299,7 @@ const UserCreation = () => {
                 {/* Name */}
                 <div>
                   <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-3">
-                    Full Name *
+                      Department Name *
                   </label>
                   <input
                     type="text"
@@ -321,7 +320,7 @@ const UserCreation = () => {
                 {/* Username */}
                 <div>
                   <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-3">
-                    Username *
+                    Name *
                   </label>
                   <input
                     type="text"
@@ -360,26 +359,8 @@ const UserCreation = () => {
                   )}
                 </div>
 
-                {/* Department */}
-                <div>
-                  <label htmlFor="department" className="block text-sm font-semibold text-gray-700 mb-3">
-                    Department *
-                  </label>
-                  <input
-                    type="text"
-                    id="department"
-                    name="department"
-                    value={formData.department}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 border-2 ${
-                      errors.department ? 'border-red-500' : 'border-gray-200'
-                    } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
-                    placeholder="Enter department name"
-                  />
-                  {errors.department && (
-                    <p className="mt-2 text-sm text-red-600">{errors.department}</p>
-                  )}
-                </div>
+                
+
 
                 {/* Mobile */}
                 <div>
@@ -436,7 +417,8 @@ const UserCreation = () => {
                       password: '',
                       role: '',
                       mobile: '',
-                      department: ''
+                
+                      
                     });
                     setErrors({});
                   }}
