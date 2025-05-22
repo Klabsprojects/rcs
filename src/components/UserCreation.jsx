@@ -4,8 +4,8 @@ const UserCreation = () => {
   // State for form fields
   const [formData, setFormData] = useState({
     username: '',
-
     role: 'user',
+    userDivision: '',
     department: '',
     contactNumber: '',
     isActive: true
@@ -34,7 +34,7 @@ const UserCreation = () => {
     
     if (!formData.username.trim()) newErrors.username = 'Username is required';
     
-
+    if (!formData.userDivision.trim()) newErrors.userDivision = 'User division is required';
     
     if (!formData.department.trim()) newErrors.department = 'Department is required';
     
@@ -76,8 +76,8 @@ const UserCreation = () => {
       setTimeout(() => {
         setFormData({
           username: '',
-          
           role: 'user',
+          userDivision: '',
           department: '',
           contactNumber: '',
           isActive: true
@@ -97,18 +97,6 @@ const UserCreation = () => {
     });
   };
 
-  // Get display name for department
-  const getDepartmentName = (code) => {
-    const departments = {
-      'administration': 'Administration',
-      'kitchen': 'Kitchen',
-      'security': 'Security',
-      'healthcare': 'Healthcare',
-      'education': 'Education'
-    };
-    return departments[code] || code;
-  };
-
   // Get display name for role
   const getRoleName = (code) => {
     const roles = {
@@ -124,7 +112,26 @@ const UserCreation = () => {
     <div className="bg-gray-50 min-h-screen py-6 px-4 sm:px-6 lg:px-8">
       <div className="mb-6 text-center">
         <h1 className="text-3xl font-bold text-sky-900">User Management</h1>
-   
+      </div>
+
+      {/* Status Cards */}
+      <div className="max-w-7xl mx-auto mb-6">
+        <div className="flex justify-center space-x-4">
+          <div className="bg-blue-50 shadow-md rounded-lg p-3 w-32">
+            <div className="text-center">
+              <div className="text-xl font-bold text-blue-600 mb-1">{users.length}</div>
+              <div className="text-gray-700 text-sm font-medium">Total Users</div>
+            </div>
+          </div>
+          <div className="bg-green-50 shadow-md rounded-lg p-3 w-32">
+            <div className="text-center">
+              <div className="text-xl font-bold text-green-600 mb-1">
+                {new Set(users.map(user => user.department.toLowerCase())).size}
+              </div>
+              <div className="text-gray-700 text-sm font-medium">Departments</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Success Message */}
@@ -144,7 +151,7 @@ const UserCreation = () => {
                 <h2 className="text-xl font-semibold text-sky-800">Create New User</h2>
               </div>
               
-              <form onSubmit={handleSubmit} className="p-6">
+              <div className="p-6">
                 <div className="space-y-4">
                   {/* Username */}
                   <div>
@@ -165,7 +172,6 @@ const UserCreation = () => {
                       <p className="mt-1 text-sm text-red-600">{errors.username}</p>
                     )}
                   </div>
-
 
                   {/* Contact Number */}
                   <div>
@@ -188,12 +194,34 @@ const UserCreation = () => {
                     )}
                   </div>
 
+                  {/* User Division */}
+                  <div>
+                    <label htmlFor="userDivision" className="block text-sm font-medium text-gray-700">
+                      User Division *
+                    </label>
+                    <input
+                      type="text"
+                      id="userDivision"
+                      name="userDivision"
+                      value={formData.userDivision}
+                      onChange={handleChange}
+                      className={`mt-1 block w-full rounded-md border ${
+                        errors.userDivision ? 'border-red-500' : 'border-gray-300'
+                      } shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500`}
+                      placeholder="Enter user division"
+                    />
+                    {errors.userDivision && (
+                      <p className="mt-1 text-sm text-red-600">{errors.userDivision}</p>
+                    )}
+                  </div>
+
                   {/* Department */}
                   <div>
                     <label htmlFor="department" className="block text-sm font-medium text-gray-700">
                       Department *
                     </label>
-                    <select
+                    <input
+                      type="text"
                       id="department"
                       name="department"
                       value={formData.department}
@@ -201,14 +229,8 @@ const UserCreation = () => {
                       className={`mt-1 block w-full rounded-md border ${
                         errors.department ? 'border-red-500' : 'border-gray-300'
                       } shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500`}
-                    >
-                      <option value="">Select Department</option>
-                      <option value="administration">Administration</option>
-                      <option value="kitchen">Kitchen</option>
-                      <option value="security">Security</option>
-                      <option value="healthcare">Healthcare</option>
-                      <option value="education">Education</option>
-                    </select>
+                      placeholder="Enter department"
+                    />
                     {errors.department && (
                       <p className="mt-1 text-sm text-red-600">{errors.department}</p>
                     )}
@@ -232,8 +254,6 @@ const UserCreation = () => {
                       <option value="readonly">Read-only User</option>
                     </select>
                   </div>
-
-        
                 </div>
 
                 {/* Action Buttons */}
@@ -244,8 +264,8 @@ const UserCreation = () => {
                     onClick={() => {
                       setFormData({
                         username: '',
-                        
                         role: 'user',
+                        userDivision: '',
                         department: '',
                         contactNumber: '',
                         isActive: true
@@ -256,8 +276,9 @@ const UserCreation = () => {
                     Clear
                   </button>
                   <button
-                    type="submit"
+                    type="button"
                     disabled={isSubmitting}
+                    onClick={handleSubmit}
                     className={`inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${
                       isSubmitting ? 'bg-sky-400' : 'bg-sky-600 hover:bg-sky-700'
                     } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500`}
@@ -275,7 +296,7 @@ const UserCreation = () => {
                     )}
                   </button>
                 </div>
-              </form>
+              </div>
             </div>
           </div>
           
@@ -294,9 +315,11 @@ const UserCreation = () => {
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Username
                       </th>
-                   
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Role / Department
+                        Role / Division
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Department
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Contact
@@ -323,10 +346,12 @@ const UserCreation = () => {
                             </div>
                           </div>
                         </td>
-                      
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{getRoleName(user.role)}</div>
-                          <div className="text-sm text-gray-500">{getDepartmentName(user.department)}</div>
+                          <div className="text-sm text-gray-500">{user.userDivision}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{user.department}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-500">{user.contactNumber}</div>
