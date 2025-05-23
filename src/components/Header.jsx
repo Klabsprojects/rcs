@@ -1,16 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    // Get user data from localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-  }, []);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -45,34 +36,17 @@ const Header = () => {
             </div>
           </div>
 
-          {/* Right Section - Welcome Message & Navigation */}
+          {/* Right Section - Home Icon & Menu */}
           <div className="flex items-center space-x-6">
             
-            {/* Welcome Message */}
-            {user && (
-              <div className="hidden md:flex items-center space-x-3 bg-white rounded-xl px-4 py-2 shadow-md border border-sky-100">
-                <div className="w-10 h-10 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-semibold text-sm">
-                    {user.name?.charAt(0).toUpperCase() || 'U'}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Welcome back,</p>
-                  <p className="text-sm font-semibold text-sky-900">{user.name || 'User'}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Dashboard Link */}
+            {/* Home Icon */}
             <a
-              href="/dashboard"
-              className="hidden md:flex items-center space-x-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-all duration-300 hover:shadow-lg font-medium"
+              href="/"
+              className="flex items-center justify-center w-10 h-10 bg-white border border-sky-200 text-sky-700 hover:text-sky-900 hover:bg-sky-50 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z" />
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
-              <span>Dashboard</span>
             </a>
 
             {/* Menu Dropdown */}
@@ -86,39 +60,10 @@ const Header = () => {
                 </svg>
               </button>
 
-              {/* Enhanced Dropdown Menu */}
+              {/* Dropdown Menu */}
               {isMenuOpen && (
                 <div className="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 backdrop-blur-sm">
                   
-                  {/* Mobile Welcome Message */}
-                  {user && (
-                    <div className="md:hidden px-4 py-3 border-b border-gray-100">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center">
-                          <span className="text-white font-semibold text-xs">
-                            {user.name?.charAt(0).toUpperCase() || 'U'}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Welcome back,</p>
-                          <p className="text-sm font-semibold text-sky-900">{user.name || 'User'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Mobile Dashboard Link */}
-                  <a
-                    href="/dashboard"
-                    className="md:hidden flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-sky-50 hover:text-sky-900 transition-colors duration-200"
-                    onClick={toggleMenu}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                    </svg>
-                    <span className="font-medium">Dashboard</span>
-                  </a>
-
                   {/* Menu Items */}
                   <a
                     href="/create"
