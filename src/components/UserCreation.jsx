@@ -278,50 +278,48 @@ return (
         {/* Main Content - Split Layout: 2/3 for Departments List, 1/3 for Form */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Left Side - Departments List (2/3 of screen) */}
-          <div className="lg:col-span-2 bg-white shadow-xl rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100">
-              <h2 className="text-xl font-semibold text-sky-800">Departments</h2>
+          {/* Left Side - Departments List (2/3 of screen) - No container, blends with viewport */}
+          <div className="lg:col-span-2">
+            <div className="mb-6">
+              <h2 className="text-2xl font-semibold text-sky-800 mb-4">Departments</h2>
             </div>
             
             {loading ? (
-              <div className="py-16 px-6 text-center">
+              <div className="py-16 text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600 mx-auto"></div>
                 <p className="mt-4 text-gray-600">Loading departments...</p>
               </div>
             ) : getDepartments().length > 0 ? (
-              <div className="p-6">
-                <div className="space-y-4">
-                  {getDepartments().map((department)  => (
-                    <div
-                      key={department.id}
-                      onClick={() => handleDepartmentClick(department)}
-                      className="bg-gray-50 hover:bg-sky-50 border border-gray-200 hover:border-sky-300 rounded-xl p-4 cursor-pointer transition-all duration-300 hover:shadow-md"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center">
-                            <span className="text-white font-semibold text-sm">
-                              {department.name?.charAt(0)?.toUpperCase() || 'D'}
-                            </span>
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-semibold text-gray-900">{department.name}</h3>
-                            <p className="text-sm text-gray-600">{department.userCount} users</p>
-                          </div>
+              <div className="space-y-4">
+                {getDepartments().map((department)  => (
+                  <div
+                    key={department.id}
+                    onClick={() => handleDepartmentClick(department)}
+                    className="bg-white hover:bg-sky-50 border border-gray-200 hover:border-sky-300 rounded-xl p-6 cursor-pointer transition-all duration-300 hover:shadow-lg"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-shrink-0 h-12 w-12 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center">
+                          <span className="text-white font-semibold text-lg">
+                            {department.name?.charAt(0)?.toUpperCase() || 'D'}
+                          </span>
                         </div>
-                        <div className="text-sky-600">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                          </svg>
+                        <div>
+                          <h3 className="text-xl font-semibold text-gray-900">{department.name}</h3>
+                          <p className="text-sm text-gray-600">{department.userCount} users</p>
                         </div>
                       </div>
+                      <div className="text-sky-600">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="py-16 px-6 text-center">
+              <div className="py-16 text-center">
                 <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
