@@ -10,10 +10,10 @@ const Header = () => {
   const handleLogout = () => {
     // Note: localStorage not available in Claude.ai artifacts
     // In a real environment, uncomment these lines:
-    // localStorage.removeItem('authToken');
-    // localStorage.removeItem('user');
-    // localStorage.removeItem('loginResponse');
-    // window.location.href = '/';
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('loginResponse');
+    window.location.href = '/';
     console.log('Logout functionality would execute here');
   };
 
