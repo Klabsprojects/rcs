@@ -58,9 +58,9 @@ function App() {
             <Route 
               path="/user-creation" 
               element={
-                // <ProtectedRoute>
+                <ProtectedRoute>
                   <UserCreation />
-                // </ProtectedRoute>
+                </ProtectedRoute>
               } 
             />
           </Routes>

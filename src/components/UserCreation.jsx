@@ -241,7 +241,7 @@ const UserManagement = () => {
     }
   };
 
-  return (
+return (
     <div className="bg-gray-50 min-h-screen py-6 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         
@@ -275,11 +275,11 @@ const UserManagement = () => {
           </div>
         )}
 
-        {/* Main Content - Split Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Main Content - Split Layout: 2/3 for Departments List, 1/3 for Form */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Left Side - Departments List */}
-          <div className="bg-white shadow-xl rounded-2xl overflow-hidden">
+          {/* Left Side - Departments List (2/3 of screen) */}
+          <div className="lg:col-span-2 bg-white shadow-xl rounded-2xl overflow-hidden">
             <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100">
               <h2 className="text-xl font-semibold text-sky-800">Departments</h2>
             </div>
@@ -330,8 +330,8 @@ const UserManagement = () => {
             )}
           </div>
 
-          {/* Right Side - User Creation Form */}
-          <div className="bg-white shadow-xl rounded-2xl overflow-hidden">
+          {/* Right Side - User Creation Form (1/3 of screen) */}
+          <div className="lg:col-span-1 bg-white shadow-xl rounded-2xl overflow-hidden">
             <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100">
               <h2 className="text-xl font-semibold text-sky-800">Create New User</h2>
             </div>
@@ -460,7 +460,7 @@ const UserManagement = () => {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex justify-end space-x-4 pt-6">
+                <div className="flex justify-end space-x-2 pt-6">
                   <button
                     type="button"
                     onClick={() => {
@@ -474,23 +474,23 @@ const UserManagement = () => {
                       });
                       setErrors({});
                     }}
-                    className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-300 font-medium"
+                    className="px-3 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-300 font-medium text-sm"
                   >
                     Clear Form
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className={`px-6 py-3 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-xl font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center space-x-2`}
+                    className={`px-3 py-2 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-lg font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center space-x-1 text-sm`}
                   >
                     {isSubmitting ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                         <span>Creating...</span>
                       </>
                     ) : (
                       <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         </svg>
                         <span>Create User</span>
