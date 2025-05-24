@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../services/api';
 
 const groceryOptions = [
   "TOOR DAL", "BENGAL GRAM DAL", "URAD DAL", "MOONG DAL", "REFINED OIL",
@@ -14,19 +15,134 @@ const DietPlanner = () => {
   const [expandedUserIndex, setExpandedUserIndex] = useState(null);
   const [formInputs, setFormInputs] = useState({ type: '', role: '', dietType: '' });
   const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const [segments, setSegments] = useState([]); // State for storing segments from GET API
+  const [segmentsLoading, setSegmentsLoading] = useState(false);
+
+  // Fetch segments on component mount using GET API
+  useEffect(() => {
+    fetchSegments();
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormInputs({ ...formInputs, [name]: value });
   };
 
-  const handleUserCreation = () => {
+  // GET API call to fetch all segments
+  const fetchSegments = async () => {
+    try {
+      setSegmentsLoading(true);
+      setApiError('');
+      
+      const token = localStorage.getItem('authToken');
+      
+      if (!token) {
+        throw new Error('Authentication token not found. Please login again.');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/segment`, {
+        method: 'GET',
+        headers: {
+          'Authorization': token,
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Session expired. Please login again.');
+        }
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.error === false) {
+        setSegments(result.data || []);
+        console.log('Segments fetched successfully:', result.data);
+      } else {
+        throw new Error(result.message || 'Failed to fetch segments');
+      }
+    } catch (error) {
+      console.error('Error fetching segments:', error);
+      setApiError(error.message);
+    } finally {
+      setSegmentsLoading(false);
+    }
+  };
+
+  // POST API call to create/filter segment data
+  const fetchSegmentData = async (category, role, diet) => {
+    try {
+      setLoading(true);
+      setApiError('');
+      
+      const token = localStorage.getItem('authToken');
+      
+      if (!token) {
+        throw new Error('Authentication token not found. Please login again.');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/segment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clategory: category,
+          role: role,
+          diet: diet
+        })
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Session expired. Please login again.');
+        }
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching segment data:', error);
+      setApiError(error.message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUserCreation = async () => {
     const { type, role, dietType } = formInputs;
     if (!type || !role || !dietType) {
       alert('Please fill all fields');
       return;
     }
-    setUserInfoList([...userInfoList, { ...formInputs, plans: [] }]);
+
+    // Map dietType to API format
+    const dietMapping = {
+      'veg': 'Vegetarian',
+      'non-veg': 'Non-Vegetarian'
+    };
+
+    const segmentData = await fetchSegmentData(type, role, dietMapping[dietType]);
+    
+    if (apiError || !segmentData) {
+      alert(`Failed to fetch segment data: ${apiError || 'Unknown error'}`);
+      return;
+    }
+
+    const newUser = {
+      ...formInputs,
+      plans: [],
+      segmentData: segmentData // Store API response data
+    };
+
+    setUserInfoList([...userInfoList, newUser]);
     setFormInputs({ type: '', role: '', dietType: '' });
   };
 
@@ -45,8 +161,38 @@ const DietPlanner = () => {
     setExpandedUserIndex(expandedUserIndex === userIndex ? null : userIndex);
   };
 
+  // Retry function for failed API calls
+  const handleRetry = () => {
+    setApiError('');
+    fetchSegments();
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
+      {/* Header with segments info */}
+      <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Diet Planner</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-600">
+              Total Segments: {segmentsLoading ? 'Loading...' : segments.length}
+            </span>
+            {segmentsLoading && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            )}
+          </div>
+          {!segmentsLoading && (
+            <button
+              onClick={fetchSegments}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Refresh Segments
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Form for creating users */}
       <div className="bg-sky-50 p-4 rounded shadow mb-6 flex gap-4 items-end">
         <div className="flex-1">
           <label className="block text-sm text-gray-700">User Type</label>
@@ -55,6 +201,7 @@ const DietPlanner = () => {
             value={formInputs.type}
             onChange={handleInputChange}
             className="w-full border px-3 py-2 rounded"
+            disabled={loading}
           >
             <option value="">Select User Type</option>
             <option value="Class A Prisoner">Class A Prisoner</option>
@@ -68,6 +215,7 @@ const DietPlanner = () => {
             value={formInputs.role}
             onChange={handleInputChange}
             className="w-full border px-3 py-2 rounded"
+            disabled={loading}
           >
             <option value="">Select Segment Type</option>
             <option value="Labour">Labour</option>
@@ -81,6 +229,7 @@ const DietPlanner = () => {
             value={formInputs.dietType}
             onChange={handleInputChange}
             className="w-full border px-3 py-2 rounded"
+            disabled={loading}
           >
             <option value="">Select</option>
             <option value="veg">Vegetarian</option>
@@ -89,66 +238,132 @@ const DietPlanner = () => {
         </div>
         <button
           onClick={handleUserCreation}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+          disabled={loading}
+          className={`px-4 py-2 rounded text-white flex items-center space-x-2 ${
+            loading 
+              ? 'bg-gray-400 cursor-not-allowed' 
+              : 'bg-green-600 hover:bg-green-700'
+          }`}
         >
-          Create
+          {loading && (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          )}
+          <span>{loading ? 'Creating...' : 'Create'}</span>
         </button>
       </div>
 
-      <div className="bg-white rounded shadow divide-y">
-        {userInfoList.map((user, index) => (
-          <div key={index}>
-            <div 
-              className="p-4 hover:bg-gray-100 cursor-pointer flex justify-between"
-              onClick={() => setSelectedUserIndex(index)}
-            >
-              <div>
-                <p className="font-semibold text-gray-800">{user.type} - {user.role} ({user.dietType})</p>
-              </div>
-              <div className="flex items-center">
-                {user.plans.length > 0 ? (
-                  <button
-                    className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleViewPlan(index);
-                    }}
-                  >
-                    View Plan
-                  </button>
-                ) : (
-                  <button
-                    className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedUserIndex(index);
-                      setShowModal(true);
-                    }}
-                  >
-                    Add Plan
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            {/* Expanded plan details */}
-            {expandedUserIndex === index && user.plans.length > 0 && (
-              <div className="bg-gray-50 p-4 border-t border-gray-200">
-                <PlanDetails plan={user.plans[0]} />
-              </div>
-            )}
+      {/* Error Display */}
+      {apiError && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 flex items-center justify-between">
+          <div>
+            <strong>Error:</strong> {apiError}
           </div>
-        ))}
+          <div className="flex space-x-2">
+            <button
+              onClick={handleRetry}
+              className="text-sm bg-red-200 hover:bg-red-300 px-3 py-1 rounded"
+            >
+              Retry
+            </button>
+            <button
+              onClick={() => setApiError('')}
+              className="text-red-700 hover:text-red-900"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Segments Display (if you want to show all segments) */}
+      {segments.length > 0 && (
+        <div className="bg-white rounded shadow mb-6 p-4">
+          <h2 className="text-lg font-semibold text-gray-800 mb-3">Available Segments</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {segments.slice(0, 6).map((segment, index) => (
+              <div key={segment.id || index} className="bg-gray-50 p-3 rounded border">
+                <p className="text-sm font-medium text-gray-800">
+                  {segment.clategory || 'N/A'} - {segment.role || 'N/A'}
+                </p>
+                <p className="text-xs text-gray-600">
+                  Diet: {segment.diet || 'N/A'}
+                </p>
+              </div>
+            ))}
+          </div>
+          {segments.length > 6 && (
+            <p className="text-sm text-gray-500 mt-2">
+              And {segments.length - 6} more segments...
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* User List */}
+      <div className="bg-white rounded shadow divide-y">
+        {userInfoList.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            <p>No users created yet. Create a user to start planning diets.</p>
+          </div>
+        ) : (
+          userInfoList.map((user, index) => (
+            <div key={index}>
+              <div 
+                className="p-4 hover:bg-gray-100 cursor-pointer flex justify-between"
+                onClick={() => setSelectedUserIndex(index)}
+              >
+                <div>
+                  <p className="font-semibold text-gray-800">{user.type} - {user.role} ({user.dietType})</p>
+                  {user.segmentData && (
+                    <p className="text-xs text-gray-500 mt-1">API Data Loaded</p>
+                  )}
+                </div>
+                <div className="flex items-center">
+                  {user.plans.length > 0 ? (
+                    <button
+                      className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewPlan(index);
+                      }}
+                    >
+                      View Plan ({user.plans.length})
+                    </button>
+                  ) : (
+                    <button
+                      className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedUserIndex(index);
+                        setShowModal(true);
+                      }}
+                    >
+                      Add Plan
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Expanded plan details */}
+              {expandedUserIndex === index && user.plans.length > 0 && (
+                <div className="bg-gray-50 p-4 border-t border-gray-200">
+                  <PlanDetails plan={user.plans[0]} segmentData={user.segmentData} />
+                </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
 
+      {/* Modal for creating diet plans */}
       {showModal && selectedUserIndex !== null && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-xl w-full mx-4">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">Create Diet Plan</h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-gray-500 hover:text-gray-800"
+                className="text-gray-500 hover:text-gray-800 text-xl"
               >
                 ×
               </button>
@@ -167,7 +382,7 @@ const DietPlanner = () => {
   );
 };
 
-const PlanDetails = ({ plan }) => {
+const PlanDetails = ({ plan, segmentData }) => {
   return (
     <div>
       <div className="mb-3">
@@ -177,6 +392,26 @@ const PlanDetails = ({ plan }) => {
           <p className="text-sm text-gray-700">Days: {plan.days.join(', ')}</p>
         )}
       </div>
+
+      {/* Display API segment data if available */}
+      {segmentData && (
+        <div className="mb-4 p-3 bg-blue-50 rounded border border-blue-200">
+          <h4 className="font-medium text-blue-800 mb-2">Segment Information:</h4>
+          <div className="text-sm text-blue-700">
+            {segmentData.error === false && segmentData.data ? (
+              <div className="space-y-1">
+                <p><strong>Status:</strong> Success</p>
+                <p><strong>Data Count:</strong> {Array.isArray(segmentData.data) ? segmentData.data.length : 'N/A'}</p>
+                {segmentData.message && <p><strong>Message:</strong> {segmentData.message}</p>}
+              </div>
+            ) : (
+              <pre className="whitespace-pre-wrap text-xs">
+                {JSON.stringify(segmentData, null, 2)}
+              </pre>
+            )}
+          </div>
+        </div>
+      )}
       
       <div className="mt-4">
         <h4 className="font-medium text-gray-800 mb-2">Items Required:</h4>
@@ -245,6 +480,19 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
 
   return (
     <div>
+      {/* Display user segment data in form */}
+      {userInfo.segmentData && (
+        <div className="mb-4 p-3 bg-green-50 rounded border border-green-200">
+          <h4 className="font-medium text-green-800 mb-2">User Segment Data:</h4>
+          <p className="text-sm text-green-700">
+            {userInfo.type} - {userInfo.role} ({userInfo.dietType === 'veg' ? 'Vegetarian' : 'Non-Vegetarian'})
+          </p>
+          {userInfo.segmentData.error === false && (
+            <p className="text-xs text-green-600 mt-1">✓ Segment data loaded successfully</p>
+          )}
+        </div>
+      )}
+
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan Type</label>
         <div className="flex gap-4">
@@ -315,19 +563,28 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
               <option value="L">L</option>
             </select>
             {index > 0 && (
-              <button onClick={() => removeItem(index)} className="bg-red-500 text-white px-2 rounded">×</button>
+              <button onClick={() => removeItem(index)} className="bg-red-500 text-white px-2 rounded hover:bg-red-600">×</button>
             )}
           </div>
         ))}
         <button
           onClick={addItem}
-          className="mt-2 bg-blue-500 text-white px-4 py-1 rounded"
+          className="mt-2 bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-600"
         >
           Add Item
         </button>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-6 flex justify-end space-x-3">
+        <button
+          onClick={() => {
+            setItems([{ name: '', quantity: '', unit: 'gram' }]);
+            setDays([]);
+          }}
+          className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+        >
+          Reset
+        </button>
         <button
           onClick={handleSave}
           className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
