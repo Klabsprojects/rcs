@@ -2,6 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../services/api';
 
 const UserManagement = () => {
+  // Get current user role from localStorage
+  const getCurrentUserRole = () => {
+    const userInfo = localStorage.getItem('user');
+    if (userInfo) {
+      try {
+        const parsed = JSON.parse(userInfo);
+        return parsed.role || 'user';
+      } catch (error) {
+        console.error('Error parsing user info:', error);
+      }
+    }
+    return 'user';
+  };
+
+  const [currentUserRole] = useState(getCurrentUserRole());
+
   // State for form fields
   const [formData, setFormData] = useState({
     p_id: null,
@@ -33,6 +49,67 @@ const UserManagement = () => {
   const [selectedDepartmentName, setSelectedDepartmentName] = useState('');
   const [userForm, setUserForm] = useState({ username: '', password: '', mobile: '' });
   const [userFormErrors, setUserFormErrors] = useState({});
+
+  // Get the appropriate role for creation based on current user role
+const getTargetRole = () => {
+  switch (currentUserRole) {
+    case 'rcs-admin':
+      return 'department';
+    case 'department':
+      return 'division';
+    case 'division':
+      return 'accounts';
+    default:
+      return 'accounts';
+  }
+};
+  // Get appropriate labels based on current user role
+  const getLabels = () => {
+    switch (currentUserRole) {
+      case 'rcs-admin':
+        return {
+          entityName: 'Department',
+          entityNamePlural: 'Departments',
+          createButtonText: 'Create Department',
+          formTitle: 'Create New Department',
+          successMessage: 'Department has been created successfully.',
+          nameLabel: 'Department Name',
+          namePlaceholder: 'Enter department name'
+        };
+      case 'department':
+        return {
+          entityName: 'Division',
+          entityNamePlural: 'Divisions',
+          createButtonText: 'Create Division',
+          formTitle: 'Create New Division',
+          successMessage: 'Division has been created successfully.',
+          nameLabel: 'Division Name',
+          namePlaceholder: 'Enter division name'
+        };
+      case 'division':
+        return {
+          entityName: 'User',
+          entityNamePlural: 'Users',
+          createButtonText: 'Create User',
+          formTitle: 'Create New User',
+          successMessage: 'User has been created successfully.',
+          nameLabel: 'User Name',
+          namePlaceholder: 'Enter user name'
+        };
+      default:
+        return {
+          entityName: 'User',
+          entityNamePlural: 'Users',
+          createButtonText: 'Create User',
+          formTitle: 'Create New User',
+          successMessage: 'User has been created successfully.',
+          nameLabel: 'User Name',
+          namePlaceholder: 'Enter user name'
+        };
+    }
+  };
+
+  const labels = getLabels();
 
   // Enhanced error parsing function
   const parseApiError = (errorResponse) => {
@@ -171,14 +248,13 @@ const UserManagement = () => {
     }
   };
 
-  // Validate form
+  // Validate form based on current user role
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.name.trim()) newErrors.name = 'Department name is required';
-    if (!formData.username.trim()) newErrors.username = 'Name is required';
+
+    if (!formData.username.trim()) newErrors.username = 'Username is required';
     if (!formData.password.trim()) newErrors.password = 'Password is required';
-    if (!formData.role.trim()) newErrors.role = 'Role is required';
 
     if (!formData.mobile.trim()) {
       newErrors.mobile = 'Mobile number is required';
@@ -190,64 +266,97 @@ const UserManagement = () => {
   };
 
   // Handle form submission with enhanced error handling
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    const formErrors = validateForm();
-    if (Object.keys(formErrors).length > 0) {
-      setErrors(formErrors);
-      return;
-    }
+  const formErrors = validateForm();
+  if (Object.keys(formErrors).length > 0) {
+    setErrors(formErrors);
+    return;
+  }
 
-    setIsSubmitting(true);
-    setErrors({});
+  setIsSubmitting(true);
+  setErrors({});
 
-    try {
-      const token = localStorage.getItem('authToken');
+  try {
+    const token = localStorage.getItem('authToken');
 
-      const response = await fetch(`${API_BASE_URL}/user`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
+    // Set the role based on current user's role
+    const targetRole = getTargetRole();
+
+    // Get parent ID from localStorage when needed
+    const getUserParentId = () => {
+      if (currentUserRole === 'rcs-admin') {
+        return null; // Admin creates departments, no parent needed
+      }
+      
+      const userInfo = localStorage.getItem('user');
+      if (userInfo) {
+        try {
+          const parsed = JSON.parse(userInfo);
+          return parsed.id || null; // Return the current user's ID as parent ID
+        } catch (error) {
+          console.error('Error parsing user info for parent ID:', error);
+        }
+      }
+      return null;
+    };
+
+    const submitData = {
+      ...formData,
+      name: formData.username, // Use username as the name
+      role: targetRole,
+      p_id: getUserParentId() // Add parent ID based on current user
+    };
+
+    // Debug logs
+    console.log('Creating entity with data:', submitData);
+    console.log('Current user role:', currentUserRole);
+    console.log('Parent ID being sent:', submitData.p_id);
+
+    const response = await fetch(`${API_BASE_URL}/user`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(submitData)
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.error === false) {
+      setSubmitSuccess(true);
+
+      // Reset form
+      setFormData({
+        p_id: null,
+        name: '',
+        username: '',
+        password: '',
+        role: '',
+        mobile: '',
       });
 
-      const result = await response.json();
+      // Refresh users list
+      await fetchUsers();
 
-      if (response.ok && result.error === false) {
-        setSubmitSuccess(true);
-
-        // Reset form
-        setFormData({
-          p_id: null,
-          name: '',
-          username: '',
-          password: '',
-          role: '',
-          mobile: '',
-        });
-
-        // Refresh users list
-        await fetchUsers();
-
-        // Hide success message after 3 seconds
-        setTimeout(() => {
-          setSubmitSuccess(false);
-        }, 3000);
-      } else {
-        // Enhanced error handling
-        const errorMessage = parseApiError(result);
-        setErrors({ general: errorMessage });
-      }
-    } catch (error) {
-      console.error('Network error:', error);
-      setErrors({ general: 'Network error. Please check your connection and try again.' });
-    } finally {
-      setIsSubmitting(false);
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setSubmitSuccess(false);
+      }, 3000);
+    } else {
+      // Enhanced error handling
+      const errorMessage = parseApiError(result);
+      setErrors({ general: errorMessage });
     }
-  };
+  } catch (error) {
+    console.error('Network error:', error);
+    setErrors({ general: 'Network error. Please check your connection and try again.' });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   // Handle create button click
   const handleCreateClick = () => {
@@ -268,33 +377,108 @@ const UserManagement = () => {
     setErrors({});
   };
 
+  // Handle user form submission for add user to department modal
+const handleUserFormSubmit = async (e) => {
+  e.preventDefault();
+  const errors = {};
+  if (!userForm.username.trim()) errors.username = 'Username is required';
+  if (!userForm.password.trim()) errors.password = 'Password is required';
+  if (!/^\d{10}$/.test(userForm.mobile)) errors.mobile = 'Valid 10-digit mobile number required';
+  
+  if (Object.keys(errors).length > 0) {
+    setUserFormErrors(errors);
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem('authToken');
+    
+    // Determine the role for the new user being added
+    let newUserRole = 'user';
+    if (currentUserRole === 'department') {
+      newUserRole = 'division';
+    } else if (currentUserRole === 'division') {
+      newUserRole = 'user';
+    }
+
+    // Get parent ID for the modal form submission
+    const getModalUserParentId = () => {
+      const userInfo = localStorage.getItem('user');
+      if (userInfo) {
+        try {
+          const parsed = JSON.parse(userInfo);
+          return parsed.id || null; // Current user's ID becomes parent ID
+        } catch (error) {
+          console.error('Error parsing user info for parent ID:', error);
+        }
+      }
+      return null;
+    };
+
+    const submitData = {
+      p_id: getModalUserParentId(), // Set parent ID
+      name: selectedDepartmentName,
+      username: userForm.username,
+      password: userForm.password,
+      role: newUserRole,
+      mobile: userForm.mobile,
+    };
+
+    // Debug logs
+    console.log('Creating user/division with data:', submitData);
+    console.log('Current user role:', currentUserRole);
+    console.log('Parent ID being sent:', submitData.p_id);
+
+    const response = await fetch(`${API_BASE_URL}/user`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(submitData)
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.error === false) {
+      // Success - refresh users and close modal
+      await fetchUsers();
+      setShowUserFormModal(false);
+      setUserForm({ username: '', password: '', mobile: '' });
+      setUserFormErrors({});
+      
+      // Show success message
+      setSubmitSuccess(true);
+      setTimeout(() => {
+        setSubmitSuccess(false);
+      }, 3000);
+    } else {
+      const errorMessage = parseApiError(result);
+      setUserFormErrors({ general: errorMessage });
+    }
+  } catch (error) {
+    console.error('Network error:', error);
+    setUserFormErrors({ general: 'Network error. Please check your connection and try again.' });
+  }
+};
+
   return (
     <div className="bg-gray-50 min-h-screen py-6 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}
         <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h1 className="text-2xl sm:text-3xl font-bold text-sky-900">User Management</h1>
-
-          {/* Create Button - Only show when form is not visible */}
-          {/* {!showForm && (
-            <button
-              onClick={handleCreateClick}
-              className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-xl font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 flex items-center justify-center space-x-2 text-sm sm:text-base"
-            >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              <span>Create Department</span>
-            </button>
-          )} */}
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">{labels.entityNamePlural} Management</h1>
+            <p className="text-gray-600 mt-1">Manage {labels.entityNamePlural.toLowerCase()} and their users</p>
+          </div>
         </div>
 
         {/* Success Message */}
         {submitSuccess && (
           <div className="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
             <strong className="font-bold">Success!</strong>
-            <span className="block sm:inline"> User has been created successfully.</span>
+            <span className="block sm:inline"> {labels.successMessage}</span>
           </div>
         )}
 
@@ -321,7 +505,7 @@ const UserManagement = () => {
           {/* Left Side - Departments List */}
           <div className={`transition-all duration-500 ease-in-out ${showForm ? 'xl:col-span-3 lg:col-span-1' : 'lg:col-span-1'}`}>
             <div className="mb-6 flex justify-between items-center">
-              <h2 className="text-2xl font-semibold text-sky-800">Departments</h2>
+              <h2 className="text-2xl font-semibold text-sky-800">{labels.entityNamePlural}</h2>
               {!showForm && (
                 <button
                   onClick={handleCreateClick}
@@ -330,16 +514,15 @@ const UserManagement = () => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  <span>Create Department</span>
+                  <span>{labels.createButtonText}</span>
                 </button>
               )}
             </div>
 
-
             {loading ? (
               <div className="py-16 text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading departments...</p>
+                <p className="mt-4 text-gray-600">Loading {labels.entityNamePlural.toLowerCase()}...</p>
               </div>
             ) : getDepartments().length > 0 ? (
               <div className="space-y-4">
@@ -380,34 +563,35 @@ const UserManagement = () => {
                           onClick={() => handleDepartmentClick(department)}
                           className="text-sm text-gray-600 hover:underline focus:outline-none"
                         >
-                          {department.userCount} Users
+                          {department.userCount} {currentUserRole === 'rcs-admin' ? 'Departments' : currentUserRole === 'department' ? 'Divisions' : 'Users'}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedDepartmentName(department.name);
-                            setShowUserFormModal(true);
-                            setUserForm({ username: '', password: '', mobile: '' });
-                            setUserFormErrors({});
-                          }}
-                          className="text-sky-600 hover:text-blue-800 transition-colors"
-                        >
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                        </button>
+                        {(currentUserRole === 'department' || currentUserRole === 'division') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedDepartmentName(department.name);
+                              setShowUserFormModal(true);
+                              setUserForm({ username: '', password: '', mobile: '' });
+                              setUserFormErrors({});
+                            }}
+                            className="text-sky-600 hover:text-blue-800 transition-colors"
+                          >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
                 ))}
-
               </div>
             ) : (
               <div className="py-16 text-center">
                 <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No departments found</h3>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No {labels.entityNamePlural.toLowerCase()} found</h3>
               </div>
             )}
           </div>
@@ -419,7 +603,7 @@ const UserManagement = () => {
             } ${showForm ? 'block' : 'hidden xl:block'}`}>
             <div className="bg-white shadow-xl rounded-2xl overflow-hidden h-fit">
               <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
-                <h2 className="text-lg sm:text-xl font-semibold text-sky-800">Create New User</h2>
+                <h2 className="text-lg sm:text-xl font-semibold text-sky-800">{labels.formTitle}</h2>
                 <button
                   onClick={handleCancelForm}
                   className="text-gray-500 hover:text-gray-700 transition-colors p-1"
@@ -440,7 +624,7 @@ const UserManagement = () => {
                         </svg>
                       </div>
                       <div className="ml-3">
-                        <h3 className="text-sm font-medium text-red-800">Error Creating User</h3>
+                        <h3 className="text-sm font-medium text-red-800">Error Creating {labels.entityName}</h3>
                         <p className="mt-1 text-sm text-red-600">{errors.general}</p>
                       </div>
                     </div>
@@ -448,30 +632,12 @@ const UserManagement = () => {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-                  {/* Department Name */}
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-                      Department Name *
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.name ? 'border-red-500' : 'border-gray-200'
-                        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-                      placeholder="Enter department name"
-                    />
-                    {errors.name && (
-                      <p className="mt-2 text-sm text-red-600">{errors.name}</p>
-                    )}
-                  </div>
+     
 
-                  {/* Name */}
+                  {/* Username */}
                   <div>
                     <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-                      Name *
+                      Username *
                     </label>
                     <input
                       type="text"
@@ -481,7 +647,7 @@ const UserManagement = () => {
                       onChange={handleChange}
                       className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.username ? 'border-red-500' : 'border-gray-200'
                         } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-                      placeholder="Enter full name"
+                      placeholder="Enter username"
                     />
                     {errors.username && (
                       <p className="mt-2 text-sm text-red-600">{errors.username}</p>
@@ -508,26 +674,6 @@ const UserManagement = () => {
                     )}
                   </div>
 
-                  {/* Role */}
-                  <div>
-                    <label htmlFor="role" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-                      Role *
-                    </label>
-                    <input
-                      type="text"
-                      id="role"
-                      name="role"
-                      value={formData.role}
-                      onChange={handleChange}
-                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.role ? 'border-red-500' : 'border-gray-200'
-                        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-                      placeholder="Enter role"
-                    />
-                    {errors.role && (
-                      <p className="mt-2 text-sm text-red-600">{errors.role}</p>
-                    )}
-                  </div>
-
                   {/* Mobile */}
                   <div>
                     <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
@@ -547,7 +693,6 @@ const UserManagement = () => {
                       <p className="mt-2 text-sm text-red-600">{errors.mobile}</p>
                     )}
                   </div>
-
                   {/* Action Buttons */}
                   <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-4 sm:pt-6">
                     <button
@@ -582,7 +727,7 @@ const UserManagement = () => {
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                           </svg>
-                          <span>Create User</span>
+                          <span>{labels.createButtonText}</span>
                         </>
                       )}
                     </button>
@@ -593,18 +738,18 @@ const UserManagement = () => {
           </div>
         </div>
 
-        {/* Modal for Department Users */}
-        {showModal && (
+        {/* User Details Modal */}
+        {showModal && selectedDepartment && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
-              {/* Modal Header */}
+            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
               <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-sky-800">
-                  {selectedDepartment?.name} Department - Users ({departmentUsers.length})
-                </h2>
+                <div>
+                  <h2 className="text-xl font-semibold text-sky-800">{selectedDepartment.name}</h2>
+                  <p className="text-sm text-gray-600 mt-1">{departmentUsers.length} {currentUserRole === 'rcs-admin' ? 'Departments' : currentUserRole === 'department' ? 'Divisions' : 'Users'}</p>
+                </div>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="text-gray-500 hover:text-gray-700 transition-colors"
+                  className="text-gray-500 hover:text-gray-700 transition-colors p-1"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -612,156 +757,171 @@ const UserManagement = () => {
                 </button>
               </div>
 
-              {/* Modal Body */}
-              <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                 {departmentUsers.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            User Info
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Username
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Role
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Mobile
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {departmentUsers.map((user) => (
-                          <tr key={user.id} className="hover:bg-gray-50 transition-colors duration-200">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center">
-                                  <span className="text-white font-semibold text-sm">
-                                    {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                                  </span>
-                                </div>
-                                <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {user.name}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{user.username}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-sky-100 text-sky-800">
-                                {user.role}
+                  <div className="space-y-4">
+                    {departmentUsers.map((user, index) => (
+                      <div key={user.id || index} className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center">
+                              <span className="text-white font-medium text-sm">
+                                {user.username ? user.username.charAt(0).toUpperCase() : 'U'}
                               </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{user.mobile}</div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900">{user.username}</h4>
+                              <p className="text-sm text-gray-600">{user.role}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-gray-600">{user.mobile}</p>
+                            <p className="text-xs text-gray-500">Mobile</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
-                  <div className="py-16 text-center">
+                  <div className="text-center py-8">
                     <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No users in this department</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Start by creating users for this department.
-                    </p>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
+                    <p className="mt-1 text-sm text-gray-500">This {labels.entityName.toLowerCase()} doesn't have any users yet.</p>
                   </div>
                 )}
               </div>
             </div>
           </div>
-          
         )}
+
+        {/* Add User to Department Modal */}
         {showUserFormModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-    <div className="bg-white rounded-xl w-full max-w-md p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-sky-800">Add User to {selectedDepartmentName}</h2>
-        <button
-          onClick={() => setShowUserFormModal(false)}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+              <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-sky-800">
+                  Add {currentUserRole === 'department' ? 'Division' : ''} to {selectedDepartmentName}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowUserFormModal(false);
+                    setUserForm({ username: '', password: '', mobile: '' });
+                    setUserFormErrors({});
+                  }}
+                  className="text-gray-500 hover:text-gray-700 transition-colors p-1"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const errors = {};
-          if (!userForm.username.trim()) errors.username = 'Username is required';
-          if (!userForm.password.trim()) errors.password = 'Password is required';
-          if (!/^\d{10}$/.test(userForm.mobile)) errors.mobile = 'Valid 10-digit mobile number required';
-          if (Object.keys(errors).length > 0) {
-            setUserFormErrors(errors);
-            return;
-          }
+              <div className="p-6">
+                {userFormErrors.general && (
+                  <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-sm text-red-600">{userFormErrors.general}</p>
+                  </div>
+                )}
 
-          // Submit logic (mock)
-          console.log('Submitted user:', userForm, 'to department:', selectedDepartmentName);
-          setShowUserFormModal(false);
-        }}
-        className="space-y-4"
-      >
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Username</label>
-          <input
-            type="text"
-            value={userForm.username}
-            onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
-            className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2"
-          />
-          {userFormErrors.username && <p className="text-red-500 text-sm mt-1">{userFormErrors.username}</p>}
-        </div>
+                <form onSubmit={handleUserFormSubmit} className="space-y-4">
+                  <div>
+                    <label htmlFor="userUsername" className="block text-sm font-medium text-gray-700 mb-2">
+                      Username *
+                    </label>
+                    <input
+                      type="text"
+                      id="userUsername"
+                      value={userForm.username}
+                      onChange={(e) => {
+                        setUserForm({ ...userForm, username: e.target.value });
+                        if (userFormErrors.username) {
+                          setUserFormErrors({ ...userFormErrors, username: '' });
+                        }
+                      }}
+                      className={`w-full px-3 py-2 border-2 ${
+                        userFormErrors.username ? 'border-red-500' : 'border-gray-200'
+                      } rounded-lg focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all`}
+                      placeholder="Enter username"
+                    />
+                    {userFormErrors.username && (
+                      <p className="mt-1 text-sm text-red-600">{userFormErrors.username}</p>
+                    )}
+                  </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Password</label>
-          <input
-            type="password"
-            value={userForm.password}
-            onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-            className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2"
-          />
-          {userFormErrors.password && <p className="text-red-500 text-sm mt-1">{userFormErrors.password}</p>}
-        </div>
+                  <div>
+                    <label htmlFor="userPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                      Password *
+                    </label>
+                    <input
+                      type="password"
+                      id="userPassword"
+                      value={userForm.password}
+                      onChange={(e) => {
+                        setUserForm({ ...userForm, password: e.target.value });
+                        if (userFormErrors.password) {
+                          setUserFormErrors({ ...userFormErrors, password: '' });
+                        }
+                      }}
+                      className={`w-full px-3 py-2 border-2 ${
+                        userFormErrors.password ? 'border-red-500' : 'border-gray-200'
+                      } rounded-lg focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all`}
+                      placeholder="Enter password"
+                    />
+                    {userFormErrors.password && (
+                      <p className="mt-1 text-sm text-red-600">{userFormErrors.password}</p>
+                    )}
+                  </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Mobile Number</label>
-          <input
-            type="text"
-            value={userForm.mobile}
-            onChange={(e) => setUserForm({ ...userForm, mobile: e.target.value })}
-            className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2"
-            placeholder="10-digit number"
-          />
-          {userFormErrors.mobile && <p className="text-red-500 text-sm mt-1">{userFormErrors.mobile}</p>}
-        </div>
+                  <div>
+                    <label htmlFor="userMobile" className="block text-sm font-medium text-gray-700 mb-2">
+                      Mobile Number *
+                    </label>
+                    <input
+                      type="text"
+                      id="userMobile"
+                      value={userForm.mobile}
+                      onChange={(e) => {
+                        setUserForm({ ...userForm, mobile: e.target.value });
+                        if (userFormErrors.mobile) {
+                          setUserFormErrors({ ...userFormErrors, mobile: '' });
+                        }
+                      }}
+                      className={`w-full px-3 py-2 border-2 ${
+                        userFormErrors.mobile ? 'border-red-500' : 'border-gray-200'
+                      } rounded-lg focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all`}
+                      placeholder="Enter 10-digit mobile number"
+                    />
+                    {userFormErrors.mobile && (
+                      <p className="mt-1 text-sm text-red-600">{userFormErrors.mobile}</p>
+                    )}
+                  </div>
 
-        <div className="pt-2">
-          <button
-            type="submit"
-            className="w-full bg-gradient-to-r from-sky-600 to-blue-600 text-white font-semibold py-2 rounded-lg hover:shadow-md"
-          >
-            Create User
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-)}
-
+                  <div className="flex justify-end space-x-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserFormModal(false);
+                        setUserForm({ username: '', password: '', mobile: '' });
+                        setUserFormErrors({});
+                      }}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-lg hover:shadow-lg transition-all"
+                    >
+                      Add {currentUserRole === 'department' ? 'Division' : 'User'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
