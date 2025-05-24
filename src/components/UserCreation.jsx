@@ -15,7 +15,7 @@ const UserManagement = () => {
   // State for users list
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState(null);
@@ -42,7 +42,7 @@ const UserManagement = () => {
         // Handle database errors with specific codes
         if (typeof errorResponse.message === 'object') {
           const { code, errno, sqlMessage, sqlState } = errorResponse.message;
-          
+
           // Handle specific database error codes
           switch (code) {
             case 'ER_DUP_ENTRY':
@@ -54,19 +54,19 @@ const UserManagement = () => {
               } else {
                 return 'This record already exists. Please check your input and try again.';
               }
-            
+
             case 'ER_NO_REFERENCED_ROW_2':
               return 'Invalid reference data. Please check your input values.';
-            
+
             case 'ER_DATA_TOO_LONG':
               return 'One or more fields exceed the maximum allowed length.';
-            
+
             case 'ER_BAD_NULL_ERROR':
               return 'Required field is missing. Please fill all mandatory fields.';
-            
+
             case 'ER_TRUNCATED_WRONG_VALUE':
               return 'Invalid data format. Please check your input values.';
-            
+
             default:
               // Return the SQL message if available, otherwise a generic message
               return sqlMessage || `Database error (${code}): Please contact support if this persists.`;
@@ -94,7 +94,7 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('authToken');
-      
+
       const response = await fetch(`${API_BASE_URL}/user`, {
         method: 'GET',
         headers: {
@@ -104,7 +104,7 @@ const UserManagement = () => {
       });
 
       const result = await response.json();
-      
+
       if (result.error === false) {
         setUsers(result.data);
       } else {
@@ -124,7 +124,7 @@ const UserManagement = () => {
   // Get departments from users data
   const getDepartments = () => {
     const departmentMap = {};
-    
+
     users.forEach(user => {
       const deptName = user.name; // This is the department name based on your original code
       if (departmentMap[deptName]) {
@@ -137,7 +137,7 @@ const UserManagement = () => {
         };
       }
     });
-    
+
     return Object.values(departmentMap);
   };
 
@@ -156,7 +156,7 @@ const UserManagement = () => {
       ...formData,
       [name]: value
     });
-    
+
     // Clear specific field error when user starts typing
     if (errors[name]) {
       setErrors({
@@ -169,37 +169,37 @@ const UserManagement = () => {
   // Validate form
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.name.trim()) newErrors.name = 'Department name is required';
     if (!formData.username.trim()) newErrors.username = 'Name is required';
     if (!formData.password.trim()) newErrors.password = 'Password is required';
     if (!formData.role.trim()) newErrors.role = 'Role is required';
-    
+
     if (!formData.mobile.trim()) {
       newErrors.mobile = 'Mobile number is required';
     } else if (!/^\d{10}$/.test(formData.mobile)) {
       newErrors.mobile = 'Mobile number must be 10 digits';
     }
-    
+
     return newErrors;
   };
 
   // Handle form submission with enhanced error handling
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     const formErrors = validateForm();
     if (Object.keys(formErrors).length > 0) {
       setErrors(formErrors);
       return;
     }
-    
+
     setIsSubmitting(true);
     setErrors({});
-    
+
     try {
       const token = localStorage.getItem('authToken');
-      
+
       const response = await fetch(`${API_BASE_URL}/user`, {
         method: 'POST',
         headers: {
@@ -210,10 +210,10 @@ const UserManagement = () => {
       });
 
       const result = await response.json();
-      
+
       if (response.ok && result.error === false) {
         setSubmitSuccess(true);
-        
+
         // Reset form
         setFormData({
           p_id: null,
@@ -223,10 +223,10 @@ const UserManagement = () => {
           role: '',
           mobile: '',
         });
-        
+
         // Refresh users list
         await fetchUsers();
-        
+
         // Hide success message after 3 seconds
         setTimeout(() => {
           setSubmitSuccess(false);
@@ -263,16 +263,16 @@ const UserManagement = () => {
     setErrors({});
   };
 
-return (
+  return (
     <div className="bg-gray-50 min-h-screen py-6 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        
+
         {/* Header */}
         <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl sm:text-3xl font-bold text-sky-900">User Management</h1>
-          
+
           {/* Create Button - Only show when form is not visible */}
-          {!showForm && (
+          {/* {!showForm && (
             <button
               onClick={handleCreateClick}
               className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-xl font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 flex items-center justify-center space-x-2 text-sm sm:text-base"
@@ -282,7 +282,7 @@ return (
               </svg>
               <span>Create Department</span>
             </button>
-          )}
+          )} */}
         </div>
 
         {/* Success Message */}
@@ -304,7 +304,7 @@ return (
             >
               <svg className="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                 <title>Close</title>
-                <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/>
+                <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z" />
               </svg>
             </button>
           </div>
@@ -312,13 +312,25 @@ return (
 
         {/* Main Content - Dynamic Layout */}
         <div className={`grid grid-cols-1 transition-all duration-500 ease-in-out ${showForm ? 'xl:grid-cols-5 lg:grid-cols-1' : 'lg:grid-cols-1'} gap-8`}>
-          
+
           {/* Left Side - Departments List */}
           <div className={`transition-all duration-500 ease-in-out ${showForm ? 'xl:col-span-3 lg:col-span-1' : 'lg:col-span-1'}`}>
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold text-sky-800 mb-4">Departments</h2>
+            <div className="mb-6 flex justify-between items-center">
+              <h2 className="text-2xl font-semibold text-sky-800">Departments</h2>
+              {!showForm && (
+                <button
+                  onClick={handleCreateClick}
+                  className="px-4 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-xl font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 flex items-center space-x-2 text-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span>Create Department</span>
+                </button>
+              )}
             </div>
-            
+
+
             {loading ? (
               <div className="py-16 text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600 mx-auto"></div>
@@ -326,32 +338,56 @@ return (
               </div>
             ) : getDepartments().length > 0 ? (
               <div className="space-y-4">
-                {getDepartments().map((department)  => (
+                {getDepartments().map((department) => (
                   <div
                     key={department.id}
-                    onClick={() => handleDepartmentClick(department)}
-                    className="bg-white hover:bg-sky-50 border border-gray-200 hover:border-sky-300 rounded-xl p-6 cursor-pointer transition-all duration-300 hover:shadow-lg"
+                    className="bg-white hover:bg-sky-50 border border-gray-200 hover:border-sky-300 rounded-xl p-6 transition-all duration-300 hover:shadow-lg"
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between w-full">
+                      {/* Left: Icon + Department Name */}
                       <div className="flex items-center space-x-4">
                         <div className="flex-shrink-0 h-12 w-12 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center">
-                          <span className="text-white font-semibold text-lg">
-                            {department.name?.charAt(0)?.toUpperCase() || 'D'}
+                          <span className="text-white font-semibold text-sm">
+                            {(() => {
+                              const words = department.name?.trim().split(' ') || [];
+
+                              if (words.length === 1) {
+                                const name = words[0];
+                                return (name.charAt(0) + name.charAt(name.length - 1)).toUpperCase();
+                              } else if (words.length >= 2) {
+                                return words
+                                  .slice(0, 2)
+                                  .map(word => word.charAt(0).toUpperCase())
+                                  .join('');
+                              } else {
+                                return 'DE';
+                              }
+                            })()}
                           </span>
                         </div>
-                        <div>
-                          <h3 className="text-xl font-semibold text-gray-900">{department.name}</h3>
-                          <p className="text-sm text-gray-600">{department.userCount} users</p>
-                        </div>
+
+                        <h3 className="text-xl font-semibold text-gray-900">{department.name}</h3>
                       </div>
-                      <div className="text-sky-600">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                        </svg>
+
+                      {/* Right: Clickable user count + static add icon */}
+                      <div className="flex items-center space-x-4">
+                        <button
+                          onClick={() => handleDepartmentClick(department)}
+                          className="text-sm text-gray-600 hover:underline focus:outline-none"
+                        >
+                          {department.userCount} Users
+                        </button>
+                        <div className="text-sky-600">
+                          {/* Static "+" icon */}
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))}
+
               </div>
             ) : (
               <div className="py-16 text-center">
@@ -364,11 +400,10 @@ return (
           </div>
 
           {/* Right Side - User Creation Form (Animated) */}
-          <div className={`transition-all duration-500 ease-in-out transform ${
-            showForm 
-              ? 'xl:col-span-2 lg:col-span-1 translate-x-0 opacity-100 mt-8 xl:mt-0' 
-              : 'xl:col-span-0 lg:col-span-0 translate-x-full opacity-0 overflow-hidden w-0'
-          } ${showForm ? 'block' : 'hidden xl:block'}`}>
+          <div className={`transition-all duration-500 ease-in-out transform ${showForm
+            ? 'xl:col-span-2 lg:col-span-1 translate-x-0 opacity-100 mt-8 xl:mt-0'
+            : 'xl:col-span-0 lg:col-span-0 translate-x-full opacity-0 overflow-hidden w-0'
+            } ${showForm ? 'block' : 'hidden xl:block'}`}>
             <div className="bg-white shadow-xl rounded-2xl overflow-hidden h-fit">
               <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
                 <h2 className="text-lg sm:text-xl font-semibold text-sky-800">Create New User</h2>
@@ -381,7 +416,7 @@ return (
                   </svg>
                 </button>
               </div>
-              
+
               <div className="p-6">
                 {errors.general && (
                   <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
@@ -411,9 +446,8 @@ return (
                       name="name"
                       value={formData.name}
                       onChange={handleChange}
-                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${
-                        errors.name ? 'border-red-500' : 'border-gray-200'
-                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.name ? 'border-red-500' : 'border-gray-200'
+                        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
                       placeholder="Enter department name"
                     />
                     {errors.name && (
@@ -432,9 +466,8 @@ return (
                       name="username"
                       value={formData.username}
                       onChange={handleChange}
-                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${
-                        errors.username ? 'border-red-500' : 'border-gray-200'
-                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.username ? 'border-red-500' : 'border-gray-200'
+                        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
                       placeholder="Enter full name"
                     />
                     {errors.username && (
@@ -453,9 +486,8 @@ return (
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${
-                        errors.password ? 'border-red-500' : 'border-gray-200'
-                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.password ? 'border-red-500' : 'border-gray-200'
+                        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
                       placeholder="Enter password"
                     />
                     {errors.password && (
@@ -474,9 +506,8 @@ return (
                       name="role"
                       value={formData.role}
                       onChange={handleChange}
-                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${
-                        errors.role ? 'border-red-500' : 'border-gray-200'
-                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.role ? 'border-red-500' : 'border-gray-200'
+                        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
                       placeholder="Enter role"
                     />
                     {errors.role && (
@@ -495,9 +526,8 @@ return (
                       name="mobile"
                       value={formData.mobile}
                       onChange={handleChange}
-                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${
-                        errors.mobile ? 'border-red-500' : 'border-gray-200'
-                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.mobile ? 'border-red-500' : 'border-gray-200'
+                        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
                       placeholder="Enter 10-digit mobile number"
                     />
                     {errors.mobile && (
@@ -568,7 +598,7 @@ return (
                   </svg>
                 </button>
               </div>
-              
+
               {/* Modal Body */}
               <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
                 {departmentUsers.length > 0 ? (
