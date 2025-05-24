@@ -18,7 +18,7 @@ const SimplifiedDashboard = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statsData.map((stat, index) => (
           <div key={index} className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-4 py-5 sm:p-6">
@@ -45,7 +45,7 @@ const SimplifiedDashboard = () => {
             </div>
           </div>
         ))}
-      </div>
+      </div> */}
     </div>
   );
 };

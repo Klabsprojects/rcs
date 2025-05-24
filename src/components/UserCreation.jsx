@@ -280,7 +280,7 @@ return (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              <span>Create User</span>
+              <span>Create Department</span>
             </button>
           )}
         </div>
@@ -371,7 +371,7 @@ return (
           } ${showForm ? 'block' : 'hidden lg:block'}`}>
             <div className="bg-white shadow-xl rounded-2xl overflow-hidden h-fit">
               <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-sky-800">Create New User</h2>
+                <h2 className="text-xl font-semibold text-sky-800">Create New Department</h2>
                 <button
                   onClick={handleCancelForm}
                   className="text-gray-500 hover:text-gray-700 transition-colors"
@@ -539,7 +539,7 @@ return (
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                           </svg>
-                          <span>Create User</span>
+                          <span>Create</span>
                         </>
                       )}
                     </button>
