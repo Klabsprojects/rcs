@@ -26,6 +26,9 @@ const UserManagement = () => {
   const [errors, setErrors] = useState({});
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
+  // State for form visibility
+  const [showForm, setShowForm] = useState(false);
+
   // Enhanced error parsing function
   const parseApiError = (errorResponse) => {
     try {
@@ -241,13 +244,45 @@ const UserManagement = () => {
     }
   };
 
+  // Handle create button click
+  const handleCreateClick = () => {
+    setShowForm(true);
+  };
+
+  // Handle cancel form
+  const handleCancelForm = () => {
+    setShowForm(false);
+    setFormData({
+      p_id: null,
+      name: '',
+      username: '',
+      password: '',
+      role: '',
+      mobile: '',
+    });
+    setErrors({});
+  };
+
 return (
     <div className="bg-gray-50 min-h-screen py-6 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
-        <div className="mb-8 text-center">
+        <div className="mb-8 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-sky-900">User Management</h1>
+          
+          {/* Create Button - Only show when form is not visible */}
+          {!showForm && (
+            <button
+              onClick={handleCreateClick}
+              className="px-6 py-3 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-xl font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 flex items-center space-x-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              <span>Create User</span>
+            </button>
+          )}
         </div>
 
         {/* Success Message */}
@@ -275,11 +310,11 @@ return (
           </div>
         )}
 
-        {/* Main Content - Split Layout: 2/3 for Departments List, 1/3 for Form */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Content - Dynamic Layout */}
+        <div className={`grid grid-cols-1 transition-all duration-500 ease-in-out ${showForm ? 'lg:grid-cols-4' : 'lg:grid-cols-1'} gap-8`}>
           
-          {/* Left Side - Departments List (2/3 of screen) - No container, blends with viewport */}
-          <div className="lg:col-span-2">
+          {/* Left Side - Departments List */}
+          <div className={`transition-all duration-500 ease-in-out ${showForm ? 'lg:col-span-3' : 'lg:col-span-1'}`}>
             <div className="mb-6">
               <h2 className="text-2xl font-semibold text-sky-800 mb-4">Departments</h2>
             </div>
@@ -328,175 +363,189 @@ return (
             )}
           </div>
 
-          {/* Right Side - User Creation Form (1/3 of screen) */}
-          <div className="lg:col-span-1 bg-white shadow-xl rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100">
-              <h2 className="text-xl font-semibold text-sky-800">Create New User</h2>
-            </div>
-            
-            <div className="p-6">
-              {errors.general && (
-                <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-red-800">Error Creating User</h3>
-                      <p className="mt-1 text-sm text-red-600">{errors.general}</p>
+          {/* Right Side - User Creation Form (Animated) */}
+          <div className={`transition-all duration-500 ease-in-out transform ${
+            showForm 
+              ? 'lg:col-span-1 translate-x-0 opacity-100' 
+              : 'lg:col-span-0 translate-x-full opacity-0 overflow-hidden w-0'
+          } ${showForm ? 'block' : 'hidden lg:block'}`}>
+            <div className="bg-white shadow-xl rounded-2xl overflow-hidden h-fit">
+              <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-sky-800">Create New User</h2>
+                <button
+                  onClick={handleCancelForm}
+                  className="text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="p-6">
+                {errors.general && (
+                  <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-red-800">Error Creating User</h3>
+                        <p className="mt-1 text-sm text-red-600">{errors.general}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Department Name */}
-                <div>
-                  <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-3">
-                    Department Name *
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 border-2 ${
-                      errors.name ? 'border-red-500' : 'border-gray-200'
-                    } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
-                    placeholder="Enter department name"
-                  />
-                  {errors.name && (
-                    <p className="mt-2 text-sm text-red-600">{errors.name}</p>
-                  )}
-                </div>
-
-                {/* Name */}
-                <div>
-                  <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-3">
-                    Name *
-                  </label>
-                  <input
-                    type="text"
-                    id="username"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 border-2 ${
-                      errors.username ? 'border-red-500' : 'border-gray-200'
-                    } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
-                    placeholder="Enter full name"
-                  />
-                  {errors.username && (
-                    <p className="mt-2 text-sm text-red-600">{errors.username}</p>
-                  )}
-                </div>
-
-                {/* Password */}
-                <div>
-                  <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-3">
-                    Password *
-                  </label>
-                  <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 border-2 ${
-                      errors.password ? 'border-red-500' : 'border-gray-200'
-                    } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
-                    placeholder="Enter password"
-                  />
-                  {errors.password && (
-                    <p className="mt-2 text-sm text-red-600">{errors.password}</p>
-                  )}
-                </div>
-
-                {/* Role */}
-                <div>
-                  <label htmlFor="role" className="block text-sm font-semibold text-gray-700 mb-3">
-                    Role *
-                  </label>
-                  <input
-                    type="text"
-                    id="role"
-                    name="role"
-                    value={formData.role}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 border-2 ${
-                      errors.role ? 'border-red-500' : 'border-gray-200'
-                    } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
-                    placeholder="Enter role"
-                  />
-                  {errors.role && (
-                    <p className="mt-2 text-sm text-red-600">{errors.role}</p>
-                  )}
-                </div>
-
-                {/* Mobile */}
-                <div>
-                  <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-3">
-                    Mobile Number *
-                  </label>
-                  <input
-                    type="text"
-                    id="mobile"
-                    name="mobile"
-                    value={formData.mobile}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 border-2 ${
-                      errors.mobile ? 'border-red-500' : 'border-gray-200'
-                    } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
-                    placeholder="Enter 10-digit mobile number"
-                  />
-                  {errors.mobile && (
-                    <p className="mt-2 text-sm text-red-600">{errors.mobile}</p>
-                  )}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-end space-x-2 pt-6">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData({
-                        p_id: null,
-                        name: '',
-                        username: '',
-                        password: '',
-                        role: '',
-                        mobile: '',
-                      });
-                      setErrors({});
-                    }}
-                    className="px-3 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-300 font-medium text-sm"
-                  >
-                    Clear Form
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className={`px-3 py-2 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-lg font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center space-x-1 text-sm`}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Creating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        <span>Create User</span>
-                      </>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Department Name */}
+                  <div>
+                    <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-3">
+                      Department Name *
+                    </label>
+                    <input
+                      type="text"
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 border-2 ${
+                        errors.name ? 'border-red-500' : 'border-gray-200'
+                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                      placeholder="Enter department name"
+                    />
+                    {errors.name && (
+                      <p className="mt-2 text-sm text-red-600">{errors.name}</p>
                     )}
-                  </button>
-                </div>
-              </form>
+                  </div>
+
+                  {/* Name */}
+                  <div>
+                    <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-3">
+                      Name *
+                    </label>
+                    <input
+                      type="text"
+                      id="username"
+                      name="username"
+                      value={formData.username}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 border-2 ${
+                        errors.username ? 'border-red-500' : 'border-gray-200'
+                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                      placeholder="Enter full name"
+                    />
+                    {errors.username && (
+                      <p className="mt-2 text-sm text-red-600">{errors.username}</p>
+                    )}
+                  </div>
+
+                  {/* Password */}
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-3">
+                      Password *
+                    </label>
+                    <input
+                      type="password"
+                      id="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 border-2 ${
+                        errors.password ? 'border-red-500' : 'border-gray-200'
+                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                      placeholder="Enter password"
+                    />
+                    {errors.password && (
+                      <p className="mt-2 text-sm text-red-600">{errors.password}</p>
+                    )}
+                  </div>
+
+                  {/* Role */}
+                  <div>
+                    <label htmlFor="role" className="block text-sm font-semibold text-gray-700 mb-3">
+                      Role *
+                    </label>
+                    <input
+                      type="text"
+                      id="role"
+                      name="role"
+                      value={formData.role}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 border-2 ${
+                        errors.role ? 'border-red-500' : 'border-gray-200'
+                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                      placeholder="Enter role"
+                    />
+                    {errors.role && (
+                      <p className="mt-2 text-sm text-red-600">{errors.role}</p>
+                    )}
+                  </div>
+
+                  {/* Mobile */}
+                  <div>
+                    <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-3">
+                      Mobile Number *
+                    </label>
+                    <input
+                      type="text"
+                      id="mobile"
+                      name="mobile"
+                      value={formData.mobile}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 border-2 ${
+                        errors.mobile ? 'border-red-500' : 'border-gray-200'
+                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                      placeholder="Enter 10-digit mobile number"
+                    />
+                    {errors.mobile && (
+                      <p className="mt-2 text-sm text-red-600">{errors.mobile}</p>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end space-x-2 pt-6">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({
+                          p_id: null,
+                          name: '',
+                          username: '',
+                          password: '',
+                          role: '',
+                          mobile: '',
+                        });
+                        setErrors({});
+                      }}
+                      className="px-3 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-300 font-medium text-sm"
+                    >
+                      Clear Form
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className={`px-3 py-2 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-lg font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center space-x-1 text-sm`}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Creating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          <span>Create User</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         </div>
