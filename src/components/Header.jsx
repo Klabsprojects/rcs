@@ -31,10 +31,11 @@ const Header = () => {
             />
             <div>
               <h1 className="text-2xl font-bold text-black">
-                RCS Demand Management System
+                கூட்டுறவுச் சங்கங்களின் பதிவாளர்
+
               </h1>
-              <p className="text-sm text-black font-medium">
-                Diet Planning and Management Portal
+              <p className="text-2xl text-black font-medium">
+                REGISTRAR OF COOPERATIVE SOCIETIES
               </p>
             </div>
           </div>
