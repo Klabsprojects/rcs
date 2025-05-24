@@ -268,19 +268,19 @@ return (
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
-        <div className="mb-8 flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-sky-900">User Management</h1>
+        <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold text-sky-900">User Management</h1>
           
           {/* Create Button - Only show when form is not visible */}
           {!showForm && (
             <button
               onClick={handleCreateClick}
-              className="px-6 py-3 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-xl font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 flex items-center space-x-2"
+              className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-xl font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 flex items-center justify-center space-x-2 text-sm sm:text-base"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              <span>Create Department</span>
+              <span>Create User</span>
             </button>
           )}
         </div>
@@ -311,10 +311,10 @@ return (
         )}
 
         {/* Main Content - Dynamic Layout */}
-        <div className={`grid grid-cols-1 transition-all duration-500 ease-in-out ${showForm ? 'lg:grid-cols-5' : 'lg:grid-cols-1'} gap-8`}>
+        <div className={`grid grid-cols-1 transition-all duration-500 ease-in-out ${showForm ? 'xl:grid-cols-5 lg:grid-cols-1' : 'lg:grid-cols-1'} gap-8`}>
           
           {/* Left Side - Departments List */}
-          <div className={`transition-all duration-500 ease-in-out ${showForm ? 'lg:col-span-3' : 'lg:col-span-1'}`}>
+          <div className={`transition-all duration-500 ease-in-out ${showForm ? 'xl:col-span-3 lg:col-span-1' : 'lg:col-span-1'}`}>
             <div className="mb-6">
               <h2 className="text-2xl font-semibold text-sky-800 mb-4">Departments</h2>
             </div>
@@ -366,15 +366,15 @@ return (
           {/* Right Side - User Creation Form (Animated) */}
           <div className={`transition-all duration-500 ease-in-out transform ${
             showForm 
-              ? 'lg:col-span-2 translate-x-0 opacity-100' 
-              : 'lg:col-span-0 translate-x-full opacity-0 overflow-hidden w-0'
-          } ${showForm ? 'block' : 'hidden lg:block'}`}>
+              ? 'xl:col-span-2 lg:col-span-1 translate-x-0 opacity-100 mt-8 xl:mt-0' 
+              : 'xl:col-span-0 lg:col-span-0 translate-x-full opacity-0 overflow-hidden w-0'
+          } ${showForm ? 'block' : 'hidden xl:block'}`}>
             <div className="bg-white shadow-xl rounded-2xl overflow-hidden h-fit">
               <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-sky-800">Create New Department</h2>
+                <h2 className="text-lg sm:text-xl font-semibold text-sky-800">Create New User</h2>
                 <button
                   onClick={handleCancelForm}
-                  className="text-gray-500 hover:text-gray-700 transition-colors"
+                  className="text-gray-500 hover:text-gray-700 transition-colors p-1"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -399,10 +399,10 @@ return (
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
                   {/* Department Name */}
                   <div>
-                    <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-3">
+                    <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
                       Department Name *
                     </label>
                     <input
@@ -411,9 +411,9 @@ return (
                       name="name"
                       value={formData.name}
                       onChange={handleChange}
-                      className={`w-full px-4 py-3 border-2 ${
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${
                         errors.name ? 'border-red-500' : 'border-gray-200'
-                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
                       placeholder="Enter department name"
                     />
                     {errors.name && (
@@ -423,7 +423,7 @@ return (
 
                   {/* Name */}
                   <div>
-                    <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-3">
+                    <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
                       Name *
                     </label>
                     <input
@@ -432,9 +432,9 @@ return (
                       name="username"
                       value={formData.username}
                       onChange={handleChange}
-                      className={`w-full px-4 py-3 border-2 ${
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${
                         errors.username ? 'border-red-500' : 'border-gray-200'
-                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
                       placeholder="Enter full name"
                     />
                     {errors.username && (
@@ -444,7 +444,7 @@ return (
 
                   {/* Password */}
                   <div>
-                    <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-3">
+                    <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
                       Password *
                     </label>
                     <input
@@ -453,9 +453,9 @@ return (
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      className={`w-full px-4 py-3 border-2 ${
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${
                         errors.password ? 'border-red-500' : 'border-gray-200'
-                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
                       placeholder="Enter password"
                     />
                     {errors.password && (
@@ -465,7 +465,7 @@ return (
 
                   {/* Role */}
                   <div>
-                    <label htmlFor="role" className="block text-sm font-semibold text-gray-700 mb-3">
+                    <label htmlFor="role" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
                       Role *
                     </label>
                     <input
@@ -474,9 +474,9 @@ return (
                       name="role"
                       value={formData.role}
                       onChange={handleChange}
-                      className={`w-full px-4 py-3 border-2 ${
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${
                         errors.role ? 'border-red-500' : 'border-gray-200'
-                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
                       placeholder="Enter role"
                     />
                     {errors.role && (
@@ -486,7 +486,7 @@ return (
 
                   {/* Mobile */}
                   <div>
-                    <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-3">
+                    <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
                       Mobile Number *
                     </label>
                     <input
@@ -495,9 +495,9 @@ return (
                       name="mobile"
                       value={formData.mobile}
                       onChange={handleChange}
-                      className={`w-full px-4 py-3 border-2 ${
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${
                         errors.mobile ? 'border-red-500' : 'border-gray-200'
-                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300`}
+                      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
                       placeholder="Enter 10-digit mobile number"
                     />
                     {errors.mobile && (
@@ -506,7 +506,7 @@ return (
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex justify-end space-x-3 pt-6">
+                  <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-4 sm:pt-6">
                     <button
                       type="button"
                       onClick={() => {
@@ -520,14 +520,14 @@ return (
                         });
                         setErrors({});
                       }}
-                      className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 font-medium text-sm"
+                      className="w-full sm:w-auto px-4 sm:px-6 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 font-medium text-sm"
                     >
                       Clear Form
                     </button>
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className={`px-6 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-lg font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center space-x-2 text-sm`}
+                      className={`w-full sm:w-auto px-4 sm:px-6 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-lg font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm`}
                     >
                       {isSubmitting ? (
                         <>
@@ -539,7 +539,7 @@ return (
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                           </svg>
-                          <span>Create</span>
+                          <span>Create User</span>
                         </>
                       )}
                     </button>
