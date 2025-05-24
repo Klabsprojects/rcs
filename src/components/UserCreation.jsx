@@ -29,6 +29,11 @@ const UserManagement = () => {
   // State for form visibility
   const [showForm, setShowForm] = useState(false);
 
+  const [showUserFormModal, setShowUserFormModal] = useState(false);
+  const [selectedDepartmentName, setSelectedDepartmentName] = useState('');
+  const [userForm, setUserForm] = useState({ username: '', password: '', mobile: '' });
+  const [userFormErrors, setUserFormErrors] = useState({});
+
   // Enhanced error parsing function
   const parseApiError = (errorResponse) => {
     try {
@@ -377,12 +382,20 @@ const UserManagement = () => {
                         >
                           {department.userCount} Users
                         </button>
-                        <div className="text-sky-600">
-                          {/* Static "+" icon */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedDepartmentName(department.name);
+                            setShowUserFormModal(true);
+                            setUserForm({ username: '', password: '', mobile: '' });
+                            setUserFormErrors({});
+                          }}
+                          className="text-sky-600 hover:text-blue-800 transition-colors"
+                        >
                           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                           </svg>
-                        </div>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -667,7 +680,88 @@ const UserManagement = () => {
               </div>
             </div>
           </div>
+          
         )}
+        {showUserFormModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="bg-white rounded-xl w-full max-w-md p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold text-sky-800">Add User to {selectedDepartmentName}</h2>
+        <button
+          onClick={() => setShowUserFormModal(false)}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const errors = {};
+          if (!userForm.username.trim()) errors.username = 'Username is required';
+          if (!userForm.password.trim()) errors.password = 'Password is required';
+          if (!/^\d{10}$/.test(userForm.mobile)) errors.mobile = 'Valid 10-digit mobile number required';
+          if (Object.keys(errors).length > 0) {
+            setUserFormErrors(errors);
+            return;
+          }
+
+          // Submit logic (mock)
+          console.log('Submitted user:', userForm, 'to department:', selectedDepartmentName);
+          setShowUserFormModal(false);
+        }}
+        className="space-y-4"
+      >
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Username</label>
+          <input
+            type="text"
+            value={userForm.username}
+            onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
+            className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2"
+          />
+          {userFormErrors.username && <p className="text-red-500 text-sm mt-1">{userFormErrors.username}</p>}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Password</label>
+          <input
+            type="password"
+            value={userForm.password}
+            onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+            className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2"
+          />
+          {userFormErrors.password && <p className="text-red-500 text-sm mt-1">{userFormErrors.password}</p>}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Mobile Number</label>
+          <input
+            type="text"
+            value={userForm.mobile}
+            onChange={(e) => setUserForm({ ...userForm, mobile: e.target.value })}
+            className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2"
+            placeholder="10-digit number"
+          />
+          {userFormErrors.mobile && <p className="text-red-500 text-sm mt-1">{userFormErrors.mobile}</p>}
+        </div>
+
+        <div className="pt-2">
+          <button
+            type="submit"
+            className="w-full bg-gradient-to-r from-sky-600 to-blue-600 text-white font-semibold py-2 rounded-lg hover:shadow-md"
+          >
+            Create User
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
+
       </div>
     </div>
   );
