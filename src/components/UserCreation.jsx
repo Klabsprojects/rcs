@@ -311,7 +311,7 @@ return (
         )}
 
         {/* Main Content - Dynamic Layout */}
-        <div className={`grid grid-cols-1 transition-all duration-500 ease-in-out ${showForm ? 'lg:grid-cols-4' : 'lg:grid-cols-1'} gap-8`}>
+        <div className={`grid grid-cols-1 transition-all duration-500 ease-in-out ${showForm ? 'lg:grid-cols-5' : 'lg:grid-cols-1'} gap-8`}>
           
           {/* Left Side - Departments List */}
           <div className={`transition-all duration-500 ease-in-out ${showForm ? 'lg:col-span-3' : 'lg:col-span-1'}`}>
@@ -366,7 +366,7 @@ return (
           {/* Right Side - User Creation Form (Animated) */}
           <div className={`transition-all duration-500 ease-in-out transform ${
             showForm 
-              ? 'lg:col-span-1 translate-x-0 opacity-100' 
+              ? 'lg:col-span-2 translate-x-0 opacity-100' 
               : 'lg:col-span-0 translate-x-full opacity-0 overflow-hidden w-0'
           } ${showForm ? 'block' : 'hidden lg:block'}`}>
             <div className="bg-white shadow-xl rounded-2xl overflow-hidden h-fit">
@@ -506,7 +506,7 @@ return (
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex justify-end space-x-2 pt-6">
+                  <div className="flex justify-end space-x-3 pt-6">
                     <button
                       type="button"
                       onClick={() => {
@@ -520,23 +520,23 @@ return (
                         });
                         setErrors({});
                       }}
-                      className="px-3 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-300 font-medium text-sm"
+                      className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 font-medium text-sm"
                     >
                       Clear Form
                     </button>
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className={`px-3 py-2 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-lg font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center space-x-1 text-sm`}
+                      className={`px-6 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-lg font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center space-x-2 text-sm`}
                     >
                       {isSubmitting ? (
                         <>
-                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                           <span>Creating...</span>
                         </>
                       ) : (
                         <>
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                           </svg>
                           <span>Create User</span>
