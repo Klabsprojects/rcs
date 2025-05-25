@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
+// Import the API interceptor - this sets up global session handling
+import './services/apiInterceptor';
+
 import Header from './components/Header';
 import DietPlanner from './components/Dietplanner';
 import Dashboard from './components/Dashboard';
@@ -20,6 +23,19 @@ function App() {
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     setIsAuthenticated(!!token);
+    
+    // Listen for storage changes (when user logs out in another tab)
+    const handleStorageChange = (e) => {
+      if (e.key === 'authToken') {
+        setIsAuthenticated(!!e.newValue);
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   return (

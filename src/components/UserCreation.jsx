@@ -204,24 +204,15 @@ const getTargetRole = () => {
   };
 
   // Get departments from users data
-  const getDepartments = () => {
-    const departmentMap = {};
-
-    users.forEach(user => {
-      const deptName = user.name; // This is the department name based on your original code
-      if (departmentMap[deptName]) {
-        departmentMap[deptName].userCount++;
-      } else {
-        departmentMap[deptName] = {
-          id: Object.keys(departmentMap).length + 1,
-          name: deptName,
-          userCount: 1
-        };
-      }
-    });
-
-    return Object.values(departmentMap);
-  };
+// Get departments from users data
+// Get departments from users data
+const getDepartments = () => {
+  return users.map(user => ({
+    id: user.id,
+    name: user.name,
+    userCount: currentUserRole === 'rcs-admin' ? user.divisions : user.users
+  }));
+};
 
   // Handle department click
   const handleDepartmentClick = (department) => {
@@ -249,21 +240,22 @@ const getTargetRole = () => {
   };
 
   // Validate form based on current user role
-  const validateForm = () => {
-    const newErrors = {};
+// Validate form based on current user role
+const validateForm = () => {
+  const newErrors = {};
 
+  if (!formData.name.trim()) newErrors.name = `${labels.nameLabel} is required`;
+  if (!formData.username.trim()) newErrors.username = 'Username is required';
+  if (!formData.password.trim()) newErrors.password = 'Password is required';
 
-    if (!formData.username.trim()) newErrors.username = 'Username is required';
-    if (!formData.password.trim()) newErrors.password = 'Password is required';
+  if (!formData.mobile.trim()) {
+    newErrors.mobile = 'Mobile number is required';
+  } else if (!/^\d{10}$/.test(formData.mobile)) {
+    newErrors.mobile = 'Mobile number must be 10 digits';
+  }
 
-    if (!formData.mobile.trim()) {
-      newErrors.mobile = 'Mobile number is required';
-    } else if (!/^\d{10}$/.test(formData.mobile)) {
-      newErrors.mobile = 'Mobile number must be 10 digits';
-    }
-
-    return newErrors;
-  };
+  return newErrors;
+};
 
   // Handle form submission with enhanced error handling
 const handleSubmit = async (e) => {
@@ -302,12 +294,12 @@ const handleSubmit = async (e) => {
       return null;
     };
 
-    const submitData = {
-      ...formData,
-      name: formData.username, // Use username as the name
-      role: targetRole,
-      p_id: getUserParentId() // Add parent ID based on current user
-    };
+ const submitData = {
+  ...formData,
+  username: `${formData.username}@${formData.name.toLowerCase().replace(/\s+/g, '')}`,
+  role: targetRole,
+  p_id: getUserParentId() // Add parent ID based on current user
+};
 
     // Debug logs
     console.log('Creating entity with data:', submitData);
@@ -563,7 +555,7 @@ const handleUserFormSubmit = async (e) => {
                           onClick={() => handleDepartmentClick(department)}
                           className="text-sm text-gray-600 hover:underline focus:outline-none"
                         >
-                          {department.userCount} {currentUserRole === 'rcs-admin' ? 'Departments' : currentUserRole === 'department' ? 'Divisions' : 'Users'}
+{department.userCount} {currentUserRole === 'rcs-admin' ? 'Divisions' : currentUserRole === 'department' ? 'Users' : 'Users'}
                         </button>
                         {(currentUserRole === 'department' || currentUserRole === 'division') && (
                           <button
@@ -633,27 +625,55 @@ const handleUserFormSubmit = async (e) => {
 
                 <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
      
-
-                  {/* Username */}
-                  <div>
-                    <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-                      Username *
-                    </label>
-                    <input
-                      type="text"
-                      id="username"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleChange}
-                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.username ? 'border-red-500' : 'border-gray-200'
-                        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-                      placeholder="Enter username"
-                    />
-                    {errors.username && (
-                      <p className="mt-2 text-sm text-red-600">{errors.username}</p>
-                    )}
-                  </div>
-
+{/* Department/Division Name */}
+<div>
+  <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+    {labels.nameLabel} *
+  </label>
+  <input
+    type="text"
+    id="name"
+    name="name"
+    value={formData.name}
+    onChange={handleChange}
+    className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.name ? 'border-red-500' : 'border-gray-200'
+      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+    placeholder={labels.namePlaceholder}
+  />
+  {errors.name && (
+    <p className="mt-2 text-sm text-red-600">{errors.name}</p>
+  )}
+</div>{/* Username */}
+{/* Username */}
+<div>
+  <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+    Username *
+  </label>
+  <div className="flex items-center space-x-2">
+    <input
+      type="text"
+      id="username"
+      name="username"
+      value={formData.username}
+      onChange={handleChange}
+      className={`flex-1 px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.username ? 'border-red-500' : 'border-gray-200'
+        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+      placeholder="Enter username"
+    />
+    <span className="text-gray-500 font-medium">@</span>
+    <input
+      type="text"
+      name="domain"
+      value={formData.domain || formData.name.toLowerCase().replace(/\s+/g, '')}
+      onChange={(e) => setFormData({...formData, domain: e.target.value})}
+      className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border-2 border-gray-200 rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base"
+      placeholder=""
+    />
+  </div>
+  {errors.username && (
+    <p className="mt-2 text-sm text-red-600">{errors.username}</p>
+  )}
+</div>
                   {/* Password */}
                   <div>
                     <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
@@ -677,7 +697,7 @@ const handleUserFormSubmit = async (e) => {
                   {/* Mobile */}
                   <div>
                     <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-                      Mobile Number *
+                      Contact *
                     </label>
                     <input
                       type="text"
@@ -745,7 +765,7 @@ const handleUserFormSubmit = async (e) => {
               <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-semibold text-sky-800">{selectedDepartment.name}</h2>
-                  <p className="text-sm text-gray-600 mt-1">{departmentUsers.length} {currentUserRole === 'rcs-admin' ? 'Departments' : currentUserRole === 'department' ? 'Divisions' : 'Users'}</p>
+<p className="text-sm text-gray-600 mt-1">{departmentUsers.length} {currentUserRole === 'rcs-admin' ? 'Divisions' : currentUserRole === 'department' ? 'Users' : 'Users'}</p>
                 </div>
                 <button
                   onClick={() => setShowModal(false)}
@@ -876,7 +896,7 @@ const handleUserFormSubmit = async (e) => {
 
                   <div>
                     <label htmlFor="userMobile" className="block text-sm font-medium text-gray-700 mb-2">
-                      Mobile Number *
+                      Contact *
                     </label>
                     <input
                       type="text"

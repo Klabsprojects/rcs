@@ -17,7 +17,7 @@ const DietPlanner = () => {
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
-  const [segments, setSegments] = useState([]); // State for storing segments from GET API
+  const [segments, setSegments] = useState([]);
   const [segmentsLoading, setSegmentsLoading] = useState(false);
 
   // Fetch segments on component mount using GET API
@@ -92,7 +92,7 @@ const DietPlanner = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          clategory: category,
+          category: category,
           role: role,
           diet: diet
         })
@@ -111,6 +111,46 @@ const DietPlanner = () => {
       console.error('Error fetching segment data:', error);
       setApiError(error.message);
       return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // NEW: POST API call to save diet plan to specific segment
+  const savePlanToSegment = async (segmentId, planData) => {
+    try {
+      setLoading(true);
+      setApiError('');
+      
+      const token = localStorage.getItem('authToken');
+      
+      if (!token) {
+        throw new Error('Authentication token not found. Please login again.');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/segment/${segmentId}/plan`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(planData)
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Session expired. Please login again.');
+        }
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('Plan saved successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('Error saving plan:', error);
+      setApiError(error.message);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -139,22 +179,60 @@ const DietPlanner = () => {
     const newUser = {
       ...formInputs,
       plans: [],
-      segmentData: segmentData // Store API response data
+      segmentData: segmentData,
+      segmentId: segmentData.data?.[0]?.id || null // Store segment ID for API calls
     };
 
     setUserInfoList([...userInfoList, newUser]);
     setFormInputs({ type: '', role: '', dietType: '' });
   };
 
-  const handleSavePlan = (plan) => {
-    const updatedList = [...userInfoList];
-    updatedList[selectedUserIndex].plans.push({
-      ...plan,
-      userType: userInfoList[selectedUserIndex].type,
-      role: userInfoList[selectedUserIndex].role,
-      dietType: userInfoList[selectedUserIndex].dietType
-    });
-    setUserInfoList(updatedList);
+  const handleSavePlan = async (plan) => {
+    const user = userInfoList[selectedUserIndex];
+    
+    if (!user.segmentId) {
+      alert('No segment ID found for this user. Please recreate the user.');
+      return;
+    }
+
+    // Transform plan data to match API format
+    const planData = {
+      name: `${plan.formType === 'per-day' ? 'Day' : plan.formType === 'per-week' ? 'Week' : 'Month'} Plan`,
+      type: plan.formType === 'per-day' ? 'Day' : plan.formType === 'per-week' ? 'Week' : 'Month',
+      items: plan.items.map(item => ({
+        name: item.name,
+        qty: parseInt(item.quantity) || 0,
+        unit: item.unit === 'gram' ? 'Grams' : 
+              item.unit === 'ml' ? 'Ml' : 
+              item.unit === 'piece' ? 'Pcs' : 
+              item.unit === 'kg' ? 'Kg' : 
+              item.unit === 'L' ? 'L' : item.unit
+      }))
+    };
+
+    // Add days if it's a weekly plan
+    if (plan.formType === 'per-week' && plan.days) {
+      planData.days = plan.days;
+    }
+
+    try {
+      const result = await savePlanToSegment(user.segmentId, planData);
+      
+      // Update local state only if API call was successful
+      const updatedList = [...userInfoList];
+      updatedList[selectedUserIndex].plans.push({
+        ...plan,
+        userType: user.type,
+        role: user.role,
+        dietType: user.dietType,
+        apiResponse: result // Store API response for reference
+      });
+      setUserInfoList(updatedList);
+      
+      alert('Plan saved successfully!');
+    } catch (error) {
+      alert(`Failed to save plan: ${error.message}`);
+    }
   };
 
   const handleViewPlan = (userIndex) => {
@@ -275,7 +353,7 @@ const DietPlanner = () => {
         </div>
       )}
 
-      {/* Segments Display (if you want to show all segments) */}
+      {/* Segments Display */}
       {segments.length > 0 && (
         <div className="bg-white rounded shadow mb-6 p-4">
           <h2 className="text-lg font-semibold text-gray-800 mb-3">Available Segments</h2>
@@ -288,6 +366,9 @@ const DietPlanner = () => {
                 <p className="text-xs text-gray-600">
                   Diet: {segment.diet || 'N/A'}
                 </p>
+                {segment.id && (
+                  <p className="text-xs text-blue-600">ID: {segment.id}</p>
+                )}
               </div>
             ))}
           </div>
@@ -303,7 +384,7 @@ const DietPlanner = () => {
       <div className="bg-white rounded shadow divide-y">
         {userInfoList.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            <p>No users created yet. Create a user to start planning diets.</p>
+            No users created yet. Create a user to start planning diets.
           </div>
         ) : (
           userInfoList.map((user, index) => (
@@ -315,7 +396,9 @@ const DietPlanner = () => {
                 <div>
                   <p className="font-semibold text-gray-800">{user.type} - {user.role} ({user.dietType})</p>
                   {user.segmentData && (
-                    <p className="text-xs text-gray-500 mt-1">API Data Loaded</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      API Data Loaded {user.segmentId && `(Segment ID: ${user.segmentId})`}
+                    </p>
                   )}
                 </div>
                 <div className="flex items-center">
@@ -374,6 +457,7 @@ const DietPlanner = () => {
                 handleSavePlan(plan);
                 setShowModal(false);
               }}
+              loading={loading}
             />
           </div>
         </div>
@@ -391,27 +475,10 @@ const PlanDetails = ({ plan, segmentData }) => {
         {plan.days && plan.days.length > 0 && (
           <p className="text-sm text-gray-700">Days: {plan.days.join(', ')}</p>
         )}
+        {plan.apiResponse && (
+          <p className="text-xs text-green-600 mt-1">✓ Saved to server successfully</p>
+        )}
       </div>
-
-      {/* Display API segment data if available */}
-      {segmentData && (
-        <div className="mb-4 p-3 bg-blue-50 rounded border border-blue-200">
-          <h4 className="font-medium text-blue-800 mb-2">Segment Information:</h4>
-          <div className="text-sm text-blue-700">
-            {segmentData.error === false && segmentData.data ? (
-              <div className="space-y-1">
-                <p><strong>Status:</strong> Success</p>
-                <p><strong>Data Count:</strong> {Array.isArray(segmentData.data) ? segmentData.data.length : 'N/A'}</p>
-                {segmentData.message && <p><strong>Message:</strong> {segmentData.message}</p>}
-              </div>
-            ) : (
-              <pre className="whitespace-pre-wrap text-xs">
-                {JSON.stringify(segmentData, null, 2)}
-              </pre>
-            )}
-          </div>
-        </div>
-      )}
       
       <div className="mt-4">
         <h4 className="font-medium text-gray-800 mb-2">Items Required:</h4>
@@ -440,7 +507,7 @@ const PlanDetails = ({ plan, segmentData }) => {
   );
 };
 
-const DietPlannerForm = ({ userInfo, onSavePlan }) => {
+const DietPlannerForm = ({ userInfo, onSavePlan, loading }) => {
   const [formType, setFormType] = useState('per-day');
   const [items, setItems] = useState([{ name: '', quantity: '', unit: 'gram' }]);
   const [days, setDays] = useState([]);
@@ -470,6 +537,13 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
       alert('Select at least one day');
       return;
     }
+    
+    // Validate quantities are numbers
+    if (items.some(item => isNaN(parseInt(item.quantity)) || parseInt(item.quantity) <= 0)) {
+      alert('Please enter valid quantities (numbers greater than 0)');
+      return;
+    }
+    
     const plan = { formType, items, ...(formType === 'per-week' && { days }) };
     onSavePlan(plan);
     setItems([{ name: '', quantity: '', unit: 'gram' }]);
@@ -487,6 +561,9 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
           <p className="text-sm text-green-700">
             {userInfo.type} - {userInfo.role} ({userInfo.dietType === 'veg' ? 'Vegetarian' : 'Non-Vegetarian'})
           </p>
+          {userInfo.segmentId && (
+            <p className="text-xs text-green-600 mt-1">Segment ID: {userInfo.segmentId}</p>
+          )}
           {userInfo.segmentData.error === false && (
             <p className="text-xs text-green-600 mt-1">✓ Segment data loaded successfully</p>
           )}
@@ -497,13 +574,34 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
         <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan Type</label>
         <div className="flex gap-4">
           <label className="flex items-center gap-2">
-            <input type="radio" value="per-day" checked={formType === 'per-day'} onChange={() => setFormType('per-day')} /> Per Day
+            <input 
+              type="radio" 
+              value="per-day" 
+              checked={formType === 'per-day'} 
+              onChange={() => setFormType('per-day')}
+              disabled={loading}
+            /> 
+            Per Day
           </label>
           <label className="flex items-center gap-2">
-            <input type="radio" value="per-week" checked={formType === 'per-week'} onChange={() => setFormType('per-week')} /> Per Week
+            <input 
+              type="radio" 
+              value="per-week" 
+              checked={formType === 'per-week'} 
+              onChange={() => setFormType('per-week')}
+              disabled={loading}
+            /> 
+            Per Week
           </label>
           <label className="flex items-center gap-2">
-            <input type="radio" value="per-month" checked={formType === 'per-month'} onChange={() => setFormType('per-month')} /> Per Month
+            <input 
+              type="radio" 
+              value="per-month" 
+              checked={formType === 'per-month'} 
+              onChange={() => setFormType('per-month')}
+              disabled={loading}
+            /> 
+            Per Month
           </label>
         </div>
       </div>
@@ -519,6 +617,7 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
                   checked={days.includes(day)}
                   onChange={() => toggleDay(day)}
                   className="mr-2"
+                  disabled={loading}
                 />
                 {day}
               </label>
@@ -536,6 +635,7 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
               value={item.name}
               onChange={(e) => handleItemChange(index, e)}
               className="w-1/3 border px-2 py-1 rounded"
+              disabled={loading}
             >
               <option value="">Select item</option>
               {groceryOptions.map((option, idx) => (
@@ -543,18 +643,21 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
               ))}
             </select>
             <input
-              type="text"
+              type="number"
               name="quantity"
               value={item.quantity}
               onChange={(e) => handleItemChange(index, e)}
               placeholder="Qty"
               className="w-1/4 border px-2 py-1 rounded"
+              min="1"
+              disabled={loading}
             />
             <select
               name="unit"
               value={item.unit}
               onChange={(e) => handleItemChange(index, e)}
               className="w-1/4 border px-2 py-1 rounded"
+              disabled={loading}
             >
               <option value="gram">Grams</option>
               <option value="ml">Ml</option>
@@ -563,13 +666,20 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
               <option value="L">L</option>
             </select>
             {index > 0 && (
-              <button onClick={() => removeItem(index)} className="bg-red-500 text-white px-2 rounded hover:bg-red-600">×</button>
+              <button 
+                onClick={() => removeItem(index)} 
+                className="bg-red-500 text-white px-2 rounded hover:bg-red-600 disabled:opacity-50"
+                disabled={loading}
+              >
+                ×
+              </button>
             )}
           </div>
         ))}
         <button
           onClick={addItem}
-          className="mt-2 bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-600"
+          className="mt-2 bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-600 disabled:opacity-50"
+          disabled={loading}
         >
           Add Item
         </button>
@@ -581,15 +691,20 @@ const DietPlannerForm = ({ userInfo, onSavePlan }) => {
             setItems([{ name: '', quantity: '', unit: 'gram' }]);
             setDays([]);
           }}
-          className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+          className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"
+          disabled={loading}
         >
           Reset
         </button>
         <button
           onClick={handleSave}
-          className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
+          className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 disabled:opacity-50 flex items-center space-x-2"
+          disabled={loading}
         >
-          Create Plan
+          {loading && (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          )}
+          <span>{loading ? 'Saving...' : 'Create Plan'}</span>
         </button>
       </div>
     </div>
