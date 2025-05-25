@@ -176,11 +176,31 @@ const DietPlanner = () => {
       return;
     }
 
+    // Try to find segment ID from different possible locations in the response
+    let segmentId = null;
+    
+    if (segmentData.data && Array.isArray(segmentData.data) && segmentData.data.length > 0) {
+      // If data is an array, take the first segment's ID
+      segmentId = segmentData.data[0].id;
+    } else if (segmentData.data && segmentData.data.id) {
+      // If data is an object with id
+      segmentId = segmentData.data.id;
+    } else if (segmentData.id) {
+      // If id is directly in the response
+      segmentId = segmentData.id;
+    } else if (segmentData.user && segmentData.user.id) {
+      // If the segment ID is in user.id (based on your response structure)
+      segmentId = segmentData.user.id;
+    }
+
+    console.log('Segment data received:', segmentData);
+    console.log('Extracted segment ID:', segmentId);
+
     const newUser = {
       ...formInputs,
       plans: [],
       segmentData: segmentData,
-      segmentId: segmentData.data?.[0]?.id || null // Store segment ID for API calls
+      segmentId: segmentId // Store segment ID for API calls
     };
 
     setUserInfoList([...userInfoList, newUser]);
@@ -190,8 +210,13 @@ const DietPlanner = () => {
   const handleSavePlan = async (plan) => {
     const user = userInfoList[selectedUserIndex];
     
+    console.log('User data:', user);
+    console.log('User segment ID:', user.segmentId);
+    
     if (!user.segmentId) {
-      alert('No segment ID found for this user. Please recreate the user.');
+      alert('No segment ID found for this user. Please check the console for debug info and recreate the user.');
+      console.error('User object:', user);
+      console.error('Segment data:', user.segmentData);
       return;
     }
 
@@ -214,6 +239,9 @@ const DietPlanner = () => {
     if (plan.formType === 'per-week' && plan.days) {
       planData.days = plan.days;
     }
+
+    console.log('Plan data to be sent:', planData);
+    console.log('Segment ID for API call:', user.segmentId);
 
     try {
       const result = await savePlanToSegment(user.segmentId, planData);
