@@ -30,8 +30,10 @@ const UserManagement = () => {
   });
 
   // New state for division rows
-  const [divisionRows, setDivisionRows] = useState([]);
-
+const [divisionRows, setDivisionRows] = useState([]);
+const [divisionGroups, setDivisionGroups] = useState([]);
+// State for editing division groups
+const [editingGroupId, setEditingGroupId] = useState(null);
   // State for users list
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +86,7 @@ const getTargetRole = () => {
         return {
           entityName: 'Division',
           entityNamePlural: 'Divisions',
-          createButtonText: 'Create Division',
+          createButtonText: 'Add division',
           formTitle: 'Create New Division',
           successMessage: 'Division has been created successfully.',
           nameLabel: 'Division Name',
@@ -177,24 +179,7 @@ const getTargetRole = () => {
   }, []);
 
   // Generate division rows when count changes
-  useEffect(() => {
-    if (currentUserRole === 'department' && formData.count && formData.name) {
-      const count = parseInt(formData.count);
-      if (count > 0) {
-  const rows = Array.from({ length: count }, (_, index) => ({
-  id: index + 1,
-  name: '',
-  address: '',
-  jailerInfo: '',
-  password: '',
-  mobile: ''
-}));
-        setDivisionRows(rows);
-      } else {
-        setDivisionRows([]);
-      }
-    }
-  }, [formData.count, formData.name, currentUserRole]);
+
 
   // Fetch users from API with enhanced error handling
   const fetchUsers = async () => {
@@ -226,7 +211,23 @@ const getTargetRole = () => {
       setLoading(false);
     }
   };
-
+// Generate division rows when count changes
+useEffect(() => {
+  if (currentUserRole === 'department' && formData.count && formData.name) {
+    const count = parseInt(formData.count);
+    if (count > 0) {
+      const rows = Array.from({ length: count }, (_, index) => ({
+        id: index + 1,
+        name: '',
+        address: '',
+        jailerInfo: ''
+      }));
+      setDivisionRows(rows);
+    } else {
+      setDivisionRows([]);
+    }
+  }
+}, [formData.count, formData.name, currentUserRole]);
   // Get departments from users data
 // Get departments from users data
 // Get departments from users data
@@ -245,7 +246,18 @@ const getDepartments = () => {
     setDepartmentUsers(usersInDept);
     setShowModal(true);
   };
-
+  // Handle division group row changes
+const handleDivisionGroupRowChange = (groupIndex, rowIndex, field, value) => {
+  const updatedGroups = [...divisionGroups];
+  updatedGroups[groupIndex].rows[rowIndex][field] = value;
+  setDivisionGroups(updatedGroups);
+};
+// Handle division group name changes
+const handleDivisionGroupNameChange = (groupIndex, newName) => {
+  const updatedGroups = [...divisionGroups];
+  updatedGroups[groupIndex].name = newName;
+  setDivisionGroups(updatedGroups);
+};
   // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -287,6 +299,7 @@ const validateForm = () => {
     
     // Validate division rows
 // Validate division rows
+// Validate division rows
 divisionRows.forEach((row, index) => {
   if (!row.name.trim()) {
     newErrors[`row_${index}_name`] = `Row ${index + 1} name is required`;
@@ -296,14 +309,6 @@ divisionRows.forEach((row, index) => {
   }
   if (!row.jailerInfo.trim()) {
     newErrors[`row_${index}_jailerInfo`] = `Row ${index + 1} jailer info is required`;
-  }
-  if (!row.password.trim()) {
-    newErrors[`row_${index}_password`] = `Row ${index + 1} password is required`;
-  }
-  if (!row.mobile.trim()) {
-    newErrors[`row_${index}_mobile`] = `Row ${index + 1} mobile is required`;
-  } else if (!/^\d{10}$/.test(row.mobile)) {
-    newErrors[`row_${index}_mobile`] = `Row ${index + 1} mobile must be 10 digits`;
   }
 });
   } else {
@@ -357,113 +362,125 @@ const handleSubmit = async (e) => {
       }
       return null;
     };
+if (currentUserRole === 'department') {
+  // Collect all division data (current + saved groups)
+  let allDivisionData = [];
+  
+  // Add current form data if exists
+  if (formData.name && formData.count && divisionRows.length > 0) {
+    allDivisionData = [...divisionRows];
+  }
+  
+  // Add all saved division groups
+  divisionGroups.forEach(group => {
+    allDivisionData = [...allDivisionData, ...group.rows];
+  });
+  
+  const promises = allDivisionData.map(row => {
+    const submitData = {
+      p_id: getUserParentId(),
+      name: row.name,
+      address: row.address,
+      jailerInfo: row.jailerInfo,
+      role: targetRole
+    };
 
-    if (currentUserRole === 'department') {
-      // For division creation, submit multiple records
-      const promises = divisionRows.map(row => {
-        const submitData = {
-          p_id: getUserParentId(),
-          name: row.name,
-          address: row.address,
-          jailerInfo: row.jailerInfo,
-          role: targetRole,
-          // No username/password/mobile for divisions
-        };
+    return fetch(`${API_BASE_URL}/user`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(submitData)
+    });
+  });
 
-        return fetch(`${API_BASE_URL}/user`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(submitData)
-        });
-      });
+  const responses = await Promise.all(promises);
+  const results = await Promise.all(responses.map(res => res.json()));
+  
+  // Check if all requests were successful
+  const allSuccessful = results.every(result => result.error === false);
+  
+  if (allSuccessful) {
+    setSubmitSuccess(true);
+    // Reset form
+    setFormData({
+      p_id: null,
+      name: '',
+      username: '',
+      password: '',
+      role: '',
+      mobile: '',
+      count: '',
+    });
+    setDivisionRows([]);
+    setDivisionGroups([]);
+    
+    // Refresh users list
+    await fetchUsers();
 
-      const responses = await Promise.all(promises);
-      const results = await Promise.all(responses.map(res => res.json()));
-      
-      // Check if all requests were successful
-      const allSuccessful = results.every(result => result.error === false);
-      
-      if (allSuccessful) {
-        setSubmitSuccess(true);
-        // Reset form
-        setFormData({
-          p_id: null,
-          name: '',
-          username: '',
-          password: '',
-          role: '',
-          mobile: '',
-          count: '',
-        });
-        setDivisionRows([]);
-        
-        // Refresh users list
-        await fetchUsers();
+    // Hide success message after 3 seconds
+    setTimeout(() => {
+      setSubmitSuccess(false);
+    }, 3000);
+  } else {
+    // Handle errors from failed requests
+    const firstError = results.find(result => result.error !== false);
+    const errorMessage = parseApiError(firstError);
+    setErrors({ general: errorMessage });
+  }
+} else {
+  // Original logic for other roles (rcs-admin, division, etc.)
+  const submitData = {
+    ...formData,
+    username: `${formData.username}@${formData.name.toLowerCase().replace(/\s+/g, '')}`,
+    role: targetRole,
+    p_id: getUserParentId()
+  };
 
-        // Hide success message after 3 seconds
-        setTimeout(() => {
-          setSubmitSuccess(false);
-        }, 3000);
-      } else {
-        // Handle errors from failed requests
-        const firstError = results.find(result => result.error !== false);
-        const errorMessage = parseApiError(firstError);
-        setErrors({ general: errorMessage });
-      }
-    } else {
-      // Original logic for other roles
-      const submitData = {
-        ...formData,
-        username: `${formData.username}@${formData.name.toLowerCase().replace(/\s+/g, '')}`,
-        role: targetRole,
-        p_id: getUserParentId()
-      };
+  console.log('Creating entity with data:', submitData);
+  console.log('Current user role:', currentUserRole);
+  console.log('Parent ID being sent:', submitData.p_id);
 
-      console.log('Creating entity with data:', submitData);
-      console.log('Current user role:', currentUserRole);
-      console.log('Parent ID being sent:', submitData.p_id);
+  const response = await fetch(`${API_BASE_URL}/user`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(submitData)
+  });
 
-      const response = await fetch(`${API_BASE_URL}/user`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData)
-      });
+  const result = await response.json();
 
-      const result = await response.json();
+  if (response.ok && result.error === false) {
+    setSubmitSuccess(true);
 
-      if (response.ok && result.error === false) {
-        setSubmitSuccess(true);
+    // Reset form
+    setFormData({
+      p_id: null,
+      name: '',
+      username: '',
+      password: '',
+      role: '',
+      mobile: '',
+      count: '',
+    });
 
-        // Reset form
-        setFormData({
-          p_id: null,
-          name: '',
-          username: '',
-          password: '',
-          role: '',
-          mobile: '',
-          count: '',
-        });
+    // Refresh users list
+    await fetchUsers();
 
-        // Refresh users list
-        await fetchUsers();
-
-        // Hide success message after 3 seconds
-        setTimeout(() => {
-          setSubmitSuccess(false);
-        }, 3000);
-      } else {
-        // Enhanced error handling
-        const errorMessage = parseApiError(result);
-        setErrors({ general: errorMessage });
-      }
-    }
+    // Hide success message after 3 seconds
+    setTimeout(() => {
+      setSubmitSuccess(false);
+    }, 3000);
+  } else {
+    // Enhanced error handling
+    const errorMessage = parseApiError(result);
+    setErrors({ general: errorMessage });
+  }
+  
+}
   } catch (error) {
     console.error('Network error:', error);
     setErrors({ general: 'Network error. Please check your connection and try again.' });
@@ -584,10 +601,10 @@ const handleUserFormSubmit = async (e) => {
 
         {/* Header */}
         <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
+          {/* <div>
             <h1 className="text-3xl font-bold text-gray-900">{labels.entityNamePlural} Management</h1>
      
-          </div>
+          </div> */}
         </div>
 
         {/* Success Message */}
@@ -615,11 +632,10 @@ const handleUserFormSubmit = async (e) => {
           </div>
         )}
 
-        {/* Main Content - Dynamic Layout */}
-        <div className={`grid grid-cols-1 transition-all duration-500 ease-in-out ${showForm ? 'xl:grid-cols-5 lg:grid-cols-1' : 'lg:grid-cols-1'} gap-8`}>
+<div className={`grid grid-cols-1 transition-all duration-500 ease-in-out ${showForm ? 'xl:grid-cols-4 lg:grid-cols-1' : 'lg:grid-cols-1'} gap-4 xl:gap-8`}>
 
           {/* Left Side - Departments List */}
-          <div className={`transition-all duration-500 ease-in-out ${showForm ? 'xl:col-span-3 lg:col-span-1' : 'lg:col-span-1'}`}>
+<div className={`transition-all duration-500 ease-in-out ${showForm ? 'xl:col-span-1 lg:col-span-1' : 'lg:col-span-1'}`}>
             <div className="mb-6 flex justify-between items-center">
               <h2 className="text-2xl font-semibold text-sky-800">{labels.entityNamePlural}</h2>
               {!showForm && (
@@ -635,88 +651,91 @@ const handleUserFormSubmit = async (e) => {
               )}
             </div>
 
-            {loading ? (
-              <div className="py-16 text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading {labels.entityNamePlural.toLowerCase()}...</p>
-              </div>
-            ) : getDepartments().length > 0 ? (
-              <div className="space-y-4">
-                {getDepartments().map((department) => (
-                  <div
-                    key={department.id}
-                    className="bg-white hover:bg-sky-50 border border-gray-200 hover:border-sky-300 rounded-xl p-6 transition-all duration-300 hover:shadow-lg"
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      {/* Left: Icon + Department Name */}
-                      <div className="flex items-center space-x-4">
-                        <div className="flex-shrink-0 h-12 w-12 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center">
-                          <span className="text-white font-semibold text-sm">
-                            {(() => {
-                              const words = department.name?.trim().split(' ') || [];
+{loading ? (
+  <div className="py-16 text-center">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600 mx-auto"></div>
+    <p className="mt-4 text-gray-600">Loading {labels.entityNamePlural.toLowerCase()}...</p>
+  </div>
+) : getDepartments().length > 0 ? (
+  <div className="space-y-4">
+{getDepartments().map((department) => (
+  <div
+    key={department.id}
+    className="bg-white hover:bg-sky-50 border border-gray-200 hover:border-sky-300 rounded-lg xl:rounded-xl p-3 xl:p-6 transition-all duration-300 hover:shadow-lg"
+  >
+    <div className="flex items-center justify-between w-full">
+      {/* Left: Icon + Department Name + Count */}
+      <div className="flex items-center space-x-3 flex-1 min-w-0">
+        <div className={`flex-shrink-0 ${showForm ? 'h-8 w-8 xl:h-10 xl:w-10' : 'h-10 w-10 sm:h-12 sm:w-12'} bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center`}>
+          <span className={`text-white font-semibold ${showForm ? 'text-xs xl:text-sm' : 'text-xs sm:text-sm'}`}>
+            {(() => {
+              const words = department.name?.trim().split(' ') || [];
 
-                              if (words.length === 1) {
-                                const name = words[0];
-                                return (name.charAt(0) + name.charAt(name.length - 1)).toUpperCase();
-                              } else if (words.length >= 2) {
-                                return words
-                                  .slice(0, 2)
-                                  .map(word => word.charAt(0).toUpperCase())
-                                  .join('');
-                              } else {
-                                return 'DE';
-                              }
-                            })()}
-                          </span>
-                        </div>
+              if (words.length === 1) {
+                const name = words[0];
+                return (name.charAt(0) + name.charAt(name.length - 1)).toUpperCase();
+              } else if (words.length >= 2) {
+                return words
+                  .slice(0, 2)
+                  .map(word => word.charAt(0).toUpperCase())
+                  .join('');
+              } else {
+                return 'DE';
+              }
+            })()}
+          </span>
+        </div>
 
-                        <h3 className="text-xl font-semibold text-gray-900">{department.name}</h3>
-                      </div>
+        <div className="flex-1 min-w-0">
+          <h3 className={`${showForm ? 'text-sm xl:text-lg' : 'text-lg sm:text-xl'} font-semibold text-gray-900 break-words leading-tight truncate`}>
+            {department.name}
+          </h3>
+          <button
+            onClick={() => handleDepartmentClick(department)}
+            className={`${showForm ? 'text-xs xl:text-sm' : 'text-sm'} text-gray-600 hover:underline focus:outline-none block mt-1`}
+          >
+            {department.userCount} {currentUserRole === 'rcs-admin' ? 'Divisions' : currentUserRole === 'department' ? 'Users' : 'Users'}
+          </button>
+        </div>
+      </div>
 
-                      {/* Right: Clickable user count + static add icon */}
-                      <div className="flex items-center space-x-4">
-                        <button
-                          onClick={() => handleDepartmentClick(department)}
-                          className="text-sm text-gray-600 hover:underline focus:outline-none"
-                        >
-{department.userCount} {currentUserRole === 'rcs-admin' ? 'Divisions' : currentUserRole === 'department' ? 'Users' : 'Users'}
-                        </button>
-                        {(currentUserRole === 'department' || currentUserRole === 'division') && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedDepartmentName(department.name);
-                              setShowUserFormModal(true);
-                              setUserForm({ username: '', password: '', mobile: '' });
-                              setUserFormErrors({});
-                            }}
-                            className="text-sky-600 hover:text-blue-800 transition-colors"
-                          >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-16 text-center">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No {labels.entityNamePlural.toLowerCase()} found</h3>
-              </div>
-            )}
+      {/* Right: Add icon only */}
+      {(currentUserRole === 'department' || currentUserRole === 'division') && (
+        <div className="flex-shrink-0 ml-2">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedDepartmentName(department.name);
+              setShowUserFormModal(true);
+              setUserForm({ username: '', password: '', mobile: '' });
+              setUserFormErrors({});
+            }}
+            className="text-sky-600 hover:text-blue-800 transition-colors"
+          >
+            <svg className={`${showForm ? 'w-4 h-4 xl:w-5 xl:h-5' : 'w-5 h-5 sm:w-6 sm:h-6'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+))}
+  </div>
+) : (
+  <div className="py-16 text-center">
+    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+    </svg>
+    <h3 className="mt-2 text-sm font-medium text-gray-900">No {labels.entityNamePlural.toLowerCase()} found</h3>
+  </div>
+)}
           </div>
 
-          {/* Right Side - User Creation Form (Animated) */}
-          <div className={`transition-all duration-500 ease-in-out transform ${showForm
-            ? 'xl:col-span-2 lg:col-span-1 translate-x-0 opacity-100 mt-8 xl:mt-0'
-            : 'xl:col-span-0 lg:col-span-0 translate-x-full opacity-0 overflow-hidden w-0'
-            } ${showForm ? 'block' : 'hidden xl:block'}`}>
+       <div className={`transition-all duration-500 ease-in-out transform ${showForm
+  ? 'xl:col-span-3 lg:col-span-1 translate-x-0 opacity-100 mt-8 xl:mt-0'
+  : 'xl:col-span-0 lg:col-span-0 translate-x-full opacity-0 overflow-hidden w-0'
+  } ${showForm ? 'block' : 'hidden xl:block'}`}>
             <div className="bg-white shadow-xl rounded-2xl overflow-hidden h-fit">
               <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
                 <h2 className="text-lg sm:text-xl font-semibold text-sky-800">{labels.formTitle}</h2>
@@ -749,159 +768,427 @@ const handleUserFormSubmit = async (e) => {
 
                 <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
      
-{/* Department/Division Name */}
-<div>
-  <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-    {labels.nameLabel} *
-  </label>
-  <input
-    type="text"
-    id="name"
-    name="name"
-    value={formData.name}
-    onChange={handleChange}
-    className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.name ? 'border-red-500' : 'border-gray-200'
-      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-    placeholder={labels.namePlaceholder}
-  />
-  {errors.name && (
-    <p className="mt-2 text-sm text-red-600">{errors.name}</p>
-  )}
-</div>
-
-{/* Count field - only show for department role */}
-{currentUserRole === 'department' && (
-  <div>
-    <label htmlFor="count" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-      Number of Records *
-    </label>
-    <input
-      type="number"
-      id="count"
-      name="count"
-      value={formData.count}
-      onChange={handleChange}
-      min="1"
-      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.count ? 'border-red-500' : 'border-gray-200'
-        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-      placeholder="Enter number of records to create"
-    />
-    {errors.count && (
-      <p className="mt-2 text-sm text-red-600">{errors.count}</p>
+{/* Department/Division Name and Count - Show at top only when no branches exist */}
+{currentUserRole === 'department' && divisionGroups.length === 0 ? (
+<div className="flex gap-4 items-end">
+    <div className="w-48">
+      <label htmlFor="new-branch-name" className="block text-sm font-semibold text-gray-700 mb-2">
+        {labels.nameLabel} *
+      </label>
+      <input
+        type="text"
+        id="new-branch-name"
+        name="name"
+        value={formData.name}
+        onChange={handleChange}
+        className={`w-full px-3 py-2 border-2 ${errors.name ? 'border-red-500' : 'border-gray-200'
+          } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all text-sm`}
+        placeholder={labels.namePlaceholder}
+      />
+      {errors.name && (
+        <p className="mt-2 text-sm text-red-600">{errors.name}</p>
+      )}
+    </div>
+    <div className="w-24">
+      <label htmlFor="new-branch-count" className="block text-sm font-semibold text-gray-700 mb-2">
+        Records *
+      </label>
+      <input
+        type="number"
+        id="new-branch-count"
+        name="count"
+        value={formData.count}
+        onChange={handleChange}
+        min="1"
+        className={`w-full px-3 py-2 border-2 ${errors.count ? 'border-red-500' : 'border-gray-200'
+          } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all text-sm`}
+        placeholder=""
+      />
+      {errors.count && (
+        <p className="mt-2 text-sm text-red-600">{errors.count}</p>
+      )}
+    </div>
+{/* Only show Add Branch button when no table is visible */}
+    {divisionRows.length === 0 && (
+      <div>
+        <button
+          type="button"
+          onClick={() => {
+            // Save current division data if it exists
+            if (formData.name && formData.count && divisionRows.length > 0) {
+              const newGroup = {
+                id: divisionGroups.length + 1,
+                name: formData.name,
+                count: formData.count,
+                rows: [...divisionRows]
+              };
+              setDivisionGroups([...divisionGroups, newGroup]);
+              
+              // Clear the division name and count fields
+              setFormData({
+                ...formData,
+                name: '',
+                count: ''
+              });
+              
+              // Clear the current table
+              setDivisionRows([]);
+            }
+          }}
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center space-x-2 h-10"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          <span>Add Branch</span>
+        </button>
+      </div>
     )}
   </div>
-)}
-
-{/* Password - common for all divisions */}
-{currentUserRole === 'department' && (
+) : currentUserRole !== 'department' ? (
   <div>
-    <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-      Password *
-    </label>
-    <input
-      type="password"
-      id="password"
-      name="password"
-      value={formData.password}
-      onChange={handleChange}
-      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.password ? 'border-red-500' : 'border-gray-200'
-        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-      placeholder="Enter password"
-    />
-    {errors.password && (
-      <p className="mt-2 text-sm text-red-600">{errors.password}</p>
-    )}
-  </div>
-)}
-
-{/* Mobile - common for all divisions */}
-{currentUserRole === 'department' && (
-  <div>
-    <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-      Contact *
+    <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+      {labels.nameLabel} *
     </label>
     <input
       type="text"
-      id="mobile"
-      name="mobile"
-      value={formData.mobile}
+      id="name"
+      name="name"
+      value={formData.name}
       onChange={handleChange}
-      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.mobile ? 'border-red-500' : 'border-gray-200'
+      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.name ? 'border-red-500' : 'border-gray-200'
         } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-      placeholder="Enter 10-digit mobile number"
+      placeholder={labels.namePlaceholder}
     />
-    {errors.mobile && (
-      <p className="mt-2 text-sm text-red-600">{errors.mobile}</p>
+    {errors.name && (
+      <p className="mt-2 text-sm text-red-600">{errors.name}</p>
     )}
   </div>
-)}
+) : null}
 
-{/* Division Rows */}
-{currentUserRole === 'department' && divisionRows.length > 0 && (
-  <div className="space-y-4">
-    {divisionRows.map((row, index) => (
-      <div key={row.id} className="p-4 border-2 border-gray-200 rounded-xl bg-gray-50">
-        <h4 className="text-md font-medium text-gray-700 mb-3">Record {index + 1}</h4>
-        <div className="space-y-3">
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Name *
-            </label>
+
+
+
+
+{/* Display Added Division Groups */}
+{currentUserRole === 'department' && divisionGroups.length > 0 && (
+  <div className="space-y-6">
+    <h3 className="text-lg font-semibold text-gray-800">Added Branches</h3>
+    {divisionGroups.map((group, groupIndex) => (
+      <div key={group.id} className="space-y-3">
+        <div className="flex justify-between items-center">
+          {editingGroupId === group.id ? (
             <input
               type="text"
-              value={row.name}
-              onChange={(e) => handleDivisionRowChange(index, 'name', e.target.value)}
-              className={`w-full px-3 py-2 border-2 ${errors[`row_${index}_name`] ? 'border-red-500' : 'border-gray-200'
-                } rounded-lg focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none transition-all text-sm`}
-              placeholder="Enter name"
+              value={group.name}
+              onChange={(e) => handleDivisionGroupNameChange(groupIndex, e.target.value)}
+              className="font-medium text-gray-900 bg-white border border-gray-300 rounded px-3 py-1 focus:border-sky-500 outline-none flex-1 mr-3"
+              placeholder="Branch name"
+              autoFocus
             />
-            {errors[`row_${index}_name`] && (
-              <p className="mt-1 text-sm text-red-600">{errors[`row_${index}_name`]}</p>
-            )}
+          ) : (
+            <h4 className="font-medium text-gray-900 flex-1">{group.name}</h4>
+          )}
+          
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (editingGroupId === group.id) {
+                  setEditingGroupId(null); // Stop editing
+                } else {
+                  setEditingGroupId(group.id); // Start editing
+                }
+              }}
+              className="text-blue-600 hover:text-blue-800 transition-colors"
+              title={editingGroupId === group.id ? "Save changes" : "Edit branch"}
+            >
+              {editingGroupId === group.id ? (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              )}
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => {
+                setDivisionGroups(divisionGroups.filter((_, index) => index !== groupIndex));
+                setEditingGroupId(null); // Reset editing state
+              }}
+              className="text-red-600 hover:text-red-800 transition-colors"
+              title="Delete branch"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-
-          {/* Address */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Address *
-            </label>
-            <textarea
-              value={row.address}
-              onChange={(e) => handleDivisionRowChange(index, 'address', e.target.value)}
-              className={`w-full px-3 py-2 border-2 ${errors[`row_${index}_address`] ? 'border-red-500' : 'border-gray-200'
-                } rounded-lg focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none transition-all text-sm`}
-              placeholder="Enter address"
-              rows="2"
-            />
-            {errors[`row_${index}_address`] && (
-              <p className="mt-1 text-sm text-red-600">{errors[`row_${index}_address`]}</p>
-            )}
-          </div>
-
-          {/* Jailer Info */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Jailer Info *
-            </label>
-            <input
-              type="text"
-              value={row.jailerInfo}
-              onChange={(e) => handleDivisionRowChange(index, 'jailerInfo', e.target.value)}
-              className={`w-full px-3 py-2 border-2 ${errors[`row_${index}_jailerInfo`] ? 'border-red-500' : 'border-gray-200'
-                } rounded-lg focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none transition-all text-sm`}
-              placeholder="Enter jailer information"
-            />
-            {errors[`row_${index}_jailerInfo`] && (
-              <p className="mt-1 text-sm text-red-600">{errors[`row_${index}_jailerInfo`]}</p>
-            )}
-          </div>
+        </div>
+        
+        <div className="overflow-hidden">
+          <table className="w-full border-collapse border border-gray-300 rounded-lg text-sm">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border-r border-gray-300 px-2 py-1 text-left font-medium">S.No</th>
+                <th className="border-r border-gray-300 px-2 py-1 text-left font-medium">Name</th>
+                <th className="border-r border-gray-300 px-2 py-1 text-left font-medium">Address</th>
+                <th className="px-2 py-1 text-left font-medium">Jailer Info</th>
+              </tr>
+            </thead>
+            <tbody>
+              {group.rows.map((row, rowIndex) => (
+                <tr key={row.id} className="hover:bg-gray-50">
+                  <td className="border-r border-t border-gray-300 px-2 py-1">{rowIndex + 1}</td>
+     <td className="border-r border-t border-gray-300 px-1 py-1">
+                    {editingGroupId === group.id ? (
+                      <div className="flex items-center space-x-1">
+                        <input
+                          type="text"
+                          value={row.name}
+                          onChange={(e) => handleDivisionGroupRowChange(groupIndex, rowIndex, 'name', e.target.value)}
+                          className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:border-sky-500 outline-none"
+                          placeholder="Enter name"
+                        />
+                        <span className="text-gray-500 text-sm">@</span>
+                        <input
+                          type="text"
+                          value={group.name.toLowerCase().replace(/\s+/g, '')}
+                          onChange={(e) => handleDivisionGroupNameChange(groupIndex, e.target.value)}
+                          className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:border-sky-500 outline-none"
+                        />
+                      </div>
+                    ) : (
+                      <span className="px-2 py-1 text-sm">{row.name}@{group.name.toLowerCase().replace(/\s+/g, '')}</span>
+                    )}
+                  </td>
+                  <td className="border-r border-t border-gray-300 px-1 py-1">
+                    {editingGroupId === group.id ? (
+                      <textarea
+                        value={row.address}
+                        onChange={(e) => handleDivisionGroupRowChange(groupIndex, rowIndex, 'address', e.target.value)}
+                        className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:border-sky-500 outline-none"
+                        placeholder="Enter address"
+                        rows="2"
+                      />
+                    ) : (
+                      <span className="px-2 py-1 text-sm">{row.address}</span>
+                    )}
+                  </td>
+                  <td className="border-t border-gray-300 px-1 py-1">
+                    {editingGroupId === group.id ? (
+                      <input
+                        type="text"
+                        value={row.jailerInfo}
+                        onChange={(e) => handleDivisionGroupRowChange(groupIndex, rowIndex, 'jailerInfo', e.target.value)}
+                        className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:border-sky-500 outline-none"
+                        placeholder="Enter jailer info"
+                      />
+                    ) : (
+                      <span className="px-2 py-1 text-sm">{row.jailerInfo}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     ))}
   </div>
 )}
 
+
+{/* Add New Branch Section - Only show after first branch is added */}
+{currentUserRole === 'department' && divisionGroups.length > 0 && (
+  <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+    <h3 className="text-lg font-semibold text-gray-800 mb-4">Add New Branch</h3>
+<div className="flex gap-4 items-end">
+      <div className="w-48">
+        <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">
+          {labels.nameLabel} *
+        </label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          className={`w-full px-3 py-2 border-2 ${errors.name ? 'border-red-500' : 'border-gray-200'
+            } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all text-sm`}
+          placeholder={labels.namePlaceholder}
+        />
+        {errors.name && (
+          <p className="mt-2 text-sm text-red-600">{errors.name}</p>
+        )}
+      </div>
+<div className="w-20">
+      <label htmlFor="new-branch-count" className="block text-sm font-semibold text-gray-700 mb-2">
+        Records *
+      </label>
+      <input
+        type="number"
+        id="new-branch-count"
+        name="count"
+    value={formData.count}
+    onChange={handleChange}
+    min="1"
+    className={`w-full px-3 py-2 border-2 ${errors.count ? 'border-red-500' : 'border-gray-200'
+      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all text-sm`}
+    placeholder=""
+  />
+  {errors.count && (
+    <p className="mt-2 text-sm text-red-600">{errors.count}</p>
+  )}
+</div>
+{/* Only show Add Branch button when no table is visible */}
+      {divisionRows.length === 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={() => {
+              // Save current division data if it exists
+              if (formData.name && formData.count && divisionRows.length > 0) {
+                const newGroup = {
+                  id: divisionGroups.length + 1,
+                  name: formData.name,
+                  count: formData.count,
+                  rows: [...divisionRows]
+                };
+                setDivisionGroups([...divisionGroups, newGroup]);
+                
+                // Clear the division name and count fields
+                setFormData({
+                  ...formData,
+                  name: '',
+                  count: ''
+                });
+                
+                // Clear the current table
+                setDivisionRows([]);
+              }
+            }}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center space-x-2 h-10"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            <span>Add Branch</span>
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+)}
+{/* Division Records Table */}
+{currentUserRole === 'department' && divisionRows.length > 0 && (
+<div className="space-y-4">
+  <div className="overflow-hidden">
+    <table className="w-full border-collapse">
+  <thead>
+  <tr className="bg-gray-100">
+    <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">S.No</th>
+    <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">Name</th>
+    <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">Address</th>
+    <th className="px-3 py-2 text-left text-sm font-medium">Jailer Info</th>
+  </tr>
+</thead>
+      <tbody>
+        {divisionRows.map((row, index) => (
+          <tr key={row.id} className="hover:bg-gray-50">
+            <td className="border border-gray-300 px-3 py-2 text-sm">{index + 1}</td>
+          <td className="border border-gray-300 px-2 py-1">
+              <div className="flex items-center space-x-1">
+                <input
+                  type="text"
+                  value={row.name}
+                  onChange={(e) => handleDivisionRowChange(index, 'name', e.target.value)}
+                  className={`flex-1 px-2 py-1 border ${errors[`row_${index}_name`] ? 'border-red-500' : 'border-gray-200'
+                    } rounded text-sm focus:border-sky-500 outline-none`}
+                  placeholder="Enter name"
+                />
+                <span className="text-gray-500 text-sm">@</span>
+                <input
+                  type="text"
+                  value={formData.name.toLowerCase().replace(/\s+/g, '')}
+                  readOnly
+                  className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm bg-gray-100 text-gray-600"
+                />
+              </div>
+              {errors[`row_${index}_name`] && (
+                <p className="text-xs text-red-600 mt-1">{errors[`row_${index}_name`]}</p>
+              )}
+            </td>
+            <td className="border border-gray-300 px-2 py-1">
+              <textarea
+                value={row.address}
+                onChange={(e) => handleDivisionRowChange(index, 'address', e.target.value)}
+                className={`w-full px-2 py-1 border ${errors[`row_${index}_address`] ? 'border-red-500' : 'border-gray-200'
+                  } rounded text-sm focus:border-sky-500 outline-none`}
+                placeholder="Enter address"
+                rows="2"
+              />
+              {errors[`row_${index}_address`] && (
+                <p className="text-xs text-red-600 mt-1">{errors[`row_${index}_address`]}</p>
+              )}
+            </td>
+            <td className="border border-gray-300 px-2 py-1">
+              <input
+                type="text"
+                value={row.jailerInfo}
+                onChange={(e) => handleDivisionRowChange(index, 'jailerInfo', e.target.value)}
+                className={`w-full px-2 py-1 border ${errors[`row_${index}_jailerInfo`] ? 'border-red-500' : 'border-gray-200'
+                  } rounded text-sm focus:border-sky-500 outline-none`}
+                placeholder="Enter jailer info"
+              />
+              {errors[`row_${index}_jailerInfo`] && (
+                <p className="text-xs text-red-600 mt-1">{errors[`row_${index}_jailerInfo`]}</p>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+  
+  {/* Add Branch Button - Moved to bottom of table */}
+{/* Add Branch Button - Moved to bottom of table */}
+  <div className="flex justify-start">
+    <button
+      type="button"
+      onClick={() => {
+        if (formData.name && formData.count && divisionRows.length > 0) {
+          const newGroup = {
+            id: divisionGroups.length + 1,
+            name: formData.name,
+            count: formData.count,
+            rows: [...divisionRows]
+          };
+          setDivisionGroups([...divisionGroups, newGroup]);
+          
+          setFormData({
+            ...formData,
+            name: '',
+            count: ''
+          });
+          
+          setDivisionRows([]);
+        }
+      }}
+      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center space-x-2"
+    >
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+      </svg>
+      <span>Add Branch</span>
+    </button>
+  </div>
+</div>
+)}
 {/* Username - only show for non-department roles */}
 {currentUserRole !== 'department' && (
   <div>
