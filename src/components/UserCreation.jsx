@@ -216,8 +216,9 @@ useEffect(() => {
   if (currentUserRole === 'department' && formData.count && formData.name) {
     const count = parseInt(formData.count);
     if (count > 0) {
-      const rows = Array.from({ length: count }, (_, index) => ({
+const rows = Array.from({ length: count }, (_, index) => ({
         id: index + 1,
+        domainName: '',
         name: '',
         address: '',
         jailerInfo: ''
@@ -933,37 +934,42 @@ const handleUserFormSubmit = async (e) => {
         <div className="overflow-hidden">
           <table className="w-full border-collapse border border-gray-300 rounded-lg text-sm">
             <thead>
-              <tr className="bg-gray-100">
-                <th className="border-r border-gray-300 px-2 py-1 text-left font-medium">S.No</th>
-                <th className="border-r border-gray-300 px-2 py-1 text-left font-medium">Name</th>
-                <th className="border-r border-gray-300 px-2 py-1 text-left font-medium">Address</th>
-                <th className="px-2 py-1 text-left font-medium">Jailer Info</th>
-              </tr>
+       <tr className="bg-gray-100">
+    <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">S.No</th>
+    <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">User Details</th>
+    <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">Address</th>
+    <th className="px-3 py-2 text-left text-sm font-medium">Jailer Info</th>
+  </tr>
             </thead>
-            <tbody>
+         <tbody>
               {group.rows.map((row, rowIndex) => (
                 <tr key={row.id} className="hover:bg-gray-50">
                   <td className="border-r border-t border-gray-300 px-2 py-1">{rowIndex + 1}</td>
-     <td className="border-r border-t border-gray-300 px-1 py-1">
+                  <td className="border-r border-t border-gray-300 px-1 py-1">
                     {editingGroupId === group.id ? (
-                      <div className="flex items-center space-x-1">
+                      <div className="space-y-1">
                         <input
                           type="text"
-                          value={row.name}
-                          onChange={(e) => handleDivisionGroupRowChange(groupIndex, rowIndex, 'name', e.target.value)}
-                          className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:border-sky-500 outline-none"
-                          placeholder="Enter name"
+                          value={row.domainName || ''}
+                          onChange={(e) => handleDivisionGroupRowChange(groupIndex, rowIndex, 'domainName', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:border-sky-500 outline-none"
+                          placeholder="Enter domain name"
                         />
-                        <span className="text-gray-500 text-sm">@</span>
-                        <input
-                          type="text"
-                          value={group.name.toLowerCase().replace(/\s+/g, '')}
-                          onChange={(e) => handleDivisionGroupNameChange(groupIndex, e.target.value)}
-                          className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:border-sky-500 outline-none"
-                        />
+                        <div className="flex items-center space-x-1">
+                          <span className="text-xs text-gray-500">rolename@</span>
+                          <input
+                            type="text"
+                            value={row.domainName || ''}
+                            readOnly
+                            className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm bg-gray-100 text-gray-600"
+                          />
+                        </div>
                       </div>
                     ) : (
-                      <span className="px-2 py-1 text-sm">{row.name}@{group.name.toLowerCase().replace(/\s+/g, '')}</span>
+                      <div className="space-y-1">
+                        <span className="px-2 py-1 text-sm">{row.domainName}</span>
+                        <span className="px-2 py-1 text-sm">rolename@{row.domainName}</span>
+                      </div>
                     )}
                   </td>
                   <td className="border-r border-t border-gray-300 px-1 py-1">
@@ -1099,28 +1105,30 @@ const handleUserFormSubmit = async (e) => {
 </thead>
       <tbody>
         {divisionRows.map((row, index) => (
-          <tr key={row.id} className="hover:bg-gray-50">
+<tr key={row.id} className="hover:bg-gray-50">
             <td className="border border-gray-300 px-3 py-2 text-sm">{index + 1}</td>
-          <td className="border border-gray-300 px-2 py-1">
-              <div className="flex items-center space-x-1">
+            <td className="border border-gray-300 px-2 py-1">
+              <div className="space-y-1">
                 <input
                   type="text"
-                  value={row.name}
-                  onChange={(e) => handleDivisionRowChange(index, 'name', e.target.value)}
-                  className={`flex-1 px-2 py-1 border ${errors[`row_${index}_name`] ? 'border-red-500' : 'border-gray-200'
+                  value={row.domainName || ''}
+                  onChange={(e) => handleDivisionRowChange(index, 'domainName', e.target.value)}
+                  className={`w-full px-2 py-1 border ${errors[`row_${index}_domainName`] ? 'border-red-500' : 'border-gray-200'
                     } rounded text-sm focus:border-sky-500 outline-none`}
-                  placeholder="Enter name"
+                  placeholder="Enter domain name"
                 />
-                <span className="text-gray-500 text-sm">@</span>
-                <input
-                  type="text"
-                  value={formData.name.toLowerCase().replace(/\s+/g, '')}
-                  readOnly
-                  className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm bg-gray-100 text-gray-600"
-                />
+                <div className="flex items-center space-x-1">
+                  <span className="text-xs text-gray-500">rolename@</span>
+                  <input
+                    type="text"
+                    value={row.domainName || ''}
+                    readOnly
+                    className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm bg-gray-100 text-gray-600"
+                  />
+                </div>
               </div>
-              {errors[`row_${index}_name`] && (
-                <p className="text-xs text-red-600 mt-1">{errors[`row_${index}_name`]}</p>
+              {errors[`row_${index}_domainName`] && (
+                <p className="text-xs text-red-600 mt-1">{errors[`row_${index}_domainName`]}</p>
               )}
             </td>
             <td className="border border-gray-300 px-2 py-1">
