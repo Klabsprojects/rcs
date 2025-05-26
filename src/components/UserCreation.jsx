@@ -26,7 +26,11 @@ const UserManagement = () => {
     password: '',
     role: '',
     mobile: '',
+    count: '', // New field for number input
   });
+
+  // New state for division rows
+  const [divisionRows, setDivisionRows] = useState([]);
 
   // State for users list
   const [users, setUsers] = useState([]);
@@ -172,6 +176,26 @@ const getTargetRole = () => {
     fetchUsers();
   }, []);
 
+  // Generate division rows when count changes
+  useEffect(() => {
+    if (currentUserRole === 'department' && formData.count && formData.name) {
+      const count = parseInt(formData.count);
+      if (count > 0) {
+  const rows = Array.from({ length: count }, (_, index) => ({
+  id: index + 1,
+  name: '',
+  address: '',
+  jailerInfo: '',
+  password: '',
+  mobile: ''
+}));
+        setDivisionRows(rows);
+      } else {
+        setDivisionRows([]);
+      }
+    }
+  }, [formData.count, formData.name, currentUserRole]);
+
   // Fetch users from API with enhanced error handling
   const fetchUsers = async () => {
     try {
@@ -239,19 +263,59 @@ const getDepartments = () => {
     }
   };
 
+  // Handle division row changes
+  const handleDivisionRowChange = (index, field, value) => {
+    const updatedRows = [...divisionRows];
+    updatedRows[index][field] = value;
+    setDivisionRows(updatedRows);
+  };
+
   // Validate form based on current user role
 // Validate form based on current user role
 const validateForm = () => {
   const newErrors = {};
 
   if (!formData.name.trim()) newErrors.name = `${labels.nameLabel} is required`;
-  if (!formData.username.trim()) newErrors.username = 'Username is required';
-  if (!formData.password.trim()) newErrors.password = 'Password is required';
+  
+  if (currentUserRole === 'department') {
+    // For division creation, don't require username
+    if (!formData.count.trim()) {
+      newErrors.count = 'Count is required';
+    } else if (!/^\d+$/.test(formData.count) || parseInt(formData.count) <= 0) {
+      newErrors.count = 'Count must be a positive number';
+    }
+    
+    // Validate division rows
+// Validate division rows
+divisionRows.forEach((row, index) => {
+  if (!row.name.trim()) {
+    newErrors[`row_${index}_name`] = `Row ${index + 1} name is required`;
+  }
+  if (!row.address.trim()) {
+    newErrors[`row_${index}_address`] = `Row ${index + 1} address is required`;
+  }
+  if (!row.jailerInfo.trim()) {
+    newErrors[`row_${index}_jailerInfo`] = `Row ${index + 1} jailer info is required`;
+  }
+  if (!row.password.trim()) {
+    newErrors[`row_${index}_password`] = `Row ${index + 1} password is required`;
+  }
+  if (!row.mobile.trim()) {
+    newErrors[`row_${index}_mobile`] = `Row ${index + 1} mobile is required`;
+  } else if (!/^\d{10}$/.test(row.mobile)) {
+    newErrors[`row_${index}_mobile`] = `Row ${index + 1} mobile must be 10 digits`;
+  }
+});
+  } else {
+    // For other roles, keep original validation
+    if (!formData.username.trim()) newErrors.username = 'Username is required';
+if (!formData.password.trim()) newErrors.password = 'Password is required';
 
-  if (!formData.mobile.trim()) {
-    newErrors.mobile = 'Mobile number is required';
-  } else if (!/^\d{10}$/.test(formData.mobile)) {
-    newErrors.mobile = 'Mobile number must be 10 digits';
+if (!formData.mobile.trim()) {
+  newErrors.mobile = 'Mobile number is required';
+} else if (!/^\d{10}$/.test(formData.mobile)) {
+  newErrors.mobile = 'Mobile number must be 10 digits';
+}
   }
 
   return newErrors;
@@ -294,53 +358,111 @@ const handleSubmit = async (e) => {
       return null;
     };
 
- const submitData = {
-  ...formData,
-  username: `${formData.username}@${formData.name.toLowerCase().replace(/\s+/g, '')}`,
-  role: targetRole,
-  p_id: getUserParentId() // Add parent ID based on current user
-};
+    if (currentUserRole === 'department') {
+      // For division creation, submit multiple records
+      const promises = divisionRows.map(row => {
+        const submitData = {
+          p_id: getUserParentId(),
+          name: row.name,
+          address: row.address,
+          jailerInfo: row.jailerInfo,
+          role: targetRole,
+          // No username/password/mobile for divisions
+        };
 
-    // Debug logs
-    console.log('Creating entity with data:', submitData);
-    console.log('Current user role:', currentUserRole);
-    console.log('Parent ID being sent:', submitData.p_id);
-
-    const response = await fetch(`${API_BASE_URL}/user`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(submitData)
-    });
-
-    const result = await response.json();
-
-    if (response.ok && result.error === false) {
-      setSubmitSuccess(true);
-
-      // Reset form
-      setFormData({
-        p_id: null,
-        name: '',
-        username: '',
-        password: '',
-        role: '',
-        mobile: '',
+        return fetch(`${API_BASE_URL}/user`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(submitData)
+        });
       });
 
-      // Refresh users list
-      await fetchUsers();
+      const responses = await Promise.all(promises);
+      const results = await Promise.all(responses.map(res => res.json()));
+      
+      // Check if all requests were successful
+      const allSuccessful = results.every(result => result.error === false);
+      
+      if (allSuccessful) {
+        setSubmitSuccess(true);
+        // Reset form
+        setFormData({
+          p_id: null,
+          name: '',
+          username: '',
+          password: '',
+          role: '',
+          mobile: '',
+          count: '',
+        });
+        setDivisionRows([]);
+        
+        // Refresh users list
+        await fetchUsers();
 
-      // Hide success message after 3 seconds
-      setTimeout(() => {
-        setSubmitSuccess(false);
-      }, 3000);
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          setSubmitSuccess(false);
+        }, 3000);
+      } else {
+        // Handle errors from failed requests
+        const firstError = results.find(result => result.error !== false);
+        const errorMessage = parseApiError(firstError);
+        setErrors({ general: errorMessage });
+      }
     } else {
-      // Enhanced error handling
-      const errorMessage = parseApiError(result);
-      setErrors({ general: errorMessage });
+      // Original logic for other roles
+      const submitData = {
+        ...formData,
+        username: `${formData.username}@${formData.name.toLowerCase().replace(/\s+/g, '')}`,
+        role: targetRole,
+        p_id: getUserParentId()
+      };
+
+      console.log('Creating entity with data:', submitData);
+      console.log('Current user role:', currentUserRole);
+      console.log('Parent ID being sent:', submitData.p_id);
+
+      const response = await fetch(`${API_BASE_URL}/user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(submitData)
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.error === false) {
+        setSubmitSuccess(true);
+
+        // Reset form
+        setFormData({
+          p_id: null,
+          name: '',
+          username: '',
+          password: '',
+          role: '',
+          mobile: '',
+          count: '',
+        });
+
+        // Refresh users list
+        await fetchUsers();
+
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          setSubmitSuccess(false);
+        }, 3000);
+      } else {
+        // Enhanced error handling
+        const errorMessage = parseApiError(result);
+        setErrors({ general: errorMessage });
+      }
     }
   } catch (error) {
     console.error('Network error:', error);
@@ -365,7 +487,9 @@ const handleSubmit = async (e) => {
       password: '',
       role: '',
       mobile: '',
+      count: '',
     });
+    setDivisionRows([]);
     setErrors({});
   };
 
@@ -462,7 +586,7 @@ const handleUserFormSubmit = async (e) => {
         <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{labels.entityNamePlural} Management</h1>
-            <p className="text-gray-600 mt-1">Manage {labels.entityNamePlural.toLowerCase()} and their users</p>
+     
           </div>
         </div>
 
@@ -643,77 +767,219 @@ const handleUserFormSubmit = async (e) => {
   {errors.name && (
     <p className="mt-2 text-sm text-red-600">{errors.name}</p>
   )}
-</div>{/* Username */}
-{/* Username */}
-<div>
-  <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-    Username *
-  </label>
-  <div className="flex items-center space-x-2">
-    <input
-      type="text"
-      id="username"
-      name="username"
-      value={formData.username}
-      onChange={handleChange}
-      className={`flex-1 px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.username ? 'border-red-500' : 'border-gray-200'
-        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-      placeholder="Enter username"
-    />
-    <span className="text-gray-500 font-medium">@</span>
-    <input
-      type="text"
-      name="domain"
-      value={formData.domain || formData.name.toLowerCase().replace(/\s+/g, '')}
-      onChange={(e) => setFormData({...formData, domain: e.target.value})}
-      className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border-2 border-gray-200 rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base"
-      placeholder=""
-    />
-  </div>
-  {errors.username && (
-    <p className="mt-2 text-sm text-red-600">{errors.username}</p>
-  )}
 </div>
-                  {/* Password */}
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-                      Password *
-                    </label>
-                    <input
-                      type="password"
-                      id="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.password ? 'border-red-500' : 'border-gray-200'
-                        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-                      placeholder="Enter password"
-                    />
-                    {errors.password && (
-                      <p className="mt-2 text-sm text-red-600">{errors.password}</p>
-                    )}
-                  </div>
 
-                  {/* Mobile */}
-                  <div>
-                    <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-                      Contact *
-                    </label>
-                    <input
-                      type="text"
-                      id="mobile"
-                      name="mobile"
-                      value={formData.mobile}
-                      onChange={handleChange}
-                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.mobile ? 'border-red-500' : 'border-gray-200'
-                        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-                      placeholder="Enter 10-digit mobile number"
-                    />
-                    {errors.mobile && (
-                      <p className="mt-2 text-sm text-red-600">{errors.mobile}</p>
-                    )}
-                  </div>
-                  {/* Action Buttons */}
+{/* Count field - only show for department role */}
+{currentUserRole === 'department' && (
+  <div>
+    <label htmlFor="count" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+      Number of Records *
+    </label>
+    <input
+      type="number"
+      id="count"
+      name="count"
+      value={formData.count}
+      onChange={handleChange}
+      min="1"
+      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.count ? 'border-red-500' : 'border-gray-200'
+        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+      placeholder="Enter number of records to create"
+    />
+    {errors.count && (
+      <p className="mt-2 text-sm text-red-600">{errors.count}</p>
+    )}
+  </div>
+)}
+
+{/* Password - common for all divisions */}
+{currentUserRole === 'department' && (
+  <div>
+    <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+      Password *
+    </label>
+    <input
+      type="password"
+      id="password"
+      name="password"
+      value={formData.password}
+      onChange={handleChange}
+      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.password ? 'border-red-500' : 'border-gray-200'
+        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+      placeholder="Enter password"
+    />
+    {errors.password && (
+      <p className="mt-2 text-sm text-red-600">{errors.password}</p>
+    )}
+  </div>
+)}
+
+{/* Mobile - common for all divisions */}
+{currentUserRole === 'department' && (
+  <div>
+    <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+      Contact *
+    </label>
+    <input
+      type="text"
+      id="mobile"
+      name="mobile"
+      value={formData.mobile}
+      onChange={handleChange}
+      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.mobile ? 'border-red-500' : 'border-gray-200'
+        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+      placeholder="Enter 10-digit mobile number"
+    />
+    {errors.mobile && (
+      <p className="mt-2 text-sm text-red-600">{errors.mobile}</p>
+    )}
+  </div>
+)}
+
+{/* Division Rows */}
+{currentUserRole === 'department' && divisionRows.length > 0 && (
+  <div className="space-y-4">
+    {divisionRows.map((row, index) => (
+      <div key={row.id} className="p-4 border-2 border-gray-200 rounded-xl bg-gray-50">
+        <h4 className="text-md font-medium text-gray-700 mb-3">Record {index + 1}</h4>
+        <div className="space-y-3">
+          {/* Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Name *
+            </label>
+            <input
+              type="text"
+              value={row.name}
+              onChange={(e) => handleDivisionRowChange(index, 'name', e.target.value)}
+              className={`w-full px-3 py-2 border-2 ${errors[`row_${index}_name`] ? 'border-red-500' : 'border-gray-200'
+                } rounded-lg focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none transition-all text-sm`}
+              placeholder="Enter name"
+            />
+            {errors[`row_${index}_name`] && (
+              <p className="mt-1 text-sm text-red-600">{errors[`row_${index}_name`]}</p>
+            )}
+          </div>
+
+          {/* Address */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Address *
+            </label>
+            <textarea
+              value={row.address}
+              onChange={(e) => handleDivisionRowChange(index, 'address', e.target.value)}
+              className={`w-full px-3 py-2 border-2 ${errors[`row_${index}_address`] ? 'border-red-500' : 'border-gray-200'
+                } rounded-lg focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none transition-all text-sm`}
+              placeholder="Enter address"
+              rows="2"
+            />
+            {errors[`row_${index}_address`] && (
+              <p className="mt-1 text-sm text-red-600">{errors[`row_${index}_address`]}</p>
+            )}
+          </div>
+
+          {/* Jailer Info */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Jailer Info *
+            </label>
+            <input
+              type="text"
+              value={row.jailerInfo}
+              onChange={(e) => handleDivisionRowChange(index, 'jailerInfo', e.target.value)}
+              className={`w-full px-3 py-2 border-2 ${errors[`row_${index}_jailerInfo`] ? 'border-red-500' : 'border-gray-200'
+                } rounded-lg focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none transition-all text-sm`}
+              placeholder="Enter jailer information"
+            />
+            {errors[`row_${index}_jailerInfo`] && (
+              <p className="mt-1 text-sm text-red-600">{errors[`row_${index}_jailerInfo`]}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
+
+{/* Username - only show for non-department roles */}
+{currentUserRole !== 'department' && (
+  <div>
+    <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+      Username *
+    </label>
+    <div className="flex items-center space-x-2">
+      <input
+        type="text"
+        id="username"
+        name="username"
+        value={formData.username}
+        onChange={handleChange}
+        className={`flex-1 px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.username ? 'border-red-500' : 'border-gray-200'
+          } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+        placeholder="Enter username"
+      />
+      <span className="text-gray-500 font-medium">@</span>
+      <input
+        type="text"
+        name="domain"
+        value={formData.domain || formData.name.toLowerCase().replace(/\s+/g, '')}
+        onChange={(e) => setFormData({...formData, domain: e.target.value})}
+        className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border-2 border-gray-200 rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base"
+        placeholder=""
+      />
+    </div>
+    {errors.username && (
+      <p className="mt-2 text-sm text-red-600">{errors.username}</p>
+    )}
+  </div>
+)}
+
+{/* Password - only show for non-department roles */}
+{currentUserRole !== 'department' && (
+  <div>
+    <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+      Password *
+    </label>
+    <input
+      type="password"
+      id="password"
+      name="password"
+      value={formData.password}
+      onChange={handleChange}
+      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.password ? 'border-red-500' : 'border-gray-200'
+        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+      placeholder="Enter password"
+    />
+    {errors.password && (
+      <p className="mt-2 text-sm text-red-600">{errors.password}</p>
+    )}
+  </div>
+)}
+
+{/* Mobile - only show for non-department roles */}
+{currentUserRole !== 'department' && (
+  <div>
+    <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+      Contact *
+    </label>
+    <input
+      type="text"
+      id="mobile"
+      name="mobile"
+      value={formData.mobile}
+      onChange={handleChange}
+      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.mobile ? 'border-red-500' : 'border-gray-200'
+        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+      placeholder="Enter 10-digit mobile number"
+    />
+    {errors.mobile && (
+      <p className="mt-2 text-sm text-red-600">{errors.mobile}</p>
+    )}
+  </div>
+)}
+
+{/* Action Buttons */}
                   <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-4 sm:pt-6">
                     <button
                       type="button"
@@ -725,7 +991,9 @@ const handleUserFormSubmit = async (e) => {
                           password: '',
                           role: '',
                           mobile: '',
+                          count: '',
                         });
+                        setDivisionRows([]);
                         setErrors({});
                       }}
                       className="w-full sm:w-auto px-4 sm:px-6 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 font-medium text-sm"
@@ -765,7 +1033,7 @@ const handleUserFormSubmit = async (e) => {
               <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-semibold text-sky-800">{selectedDepartment.name}</h2>
-<p className="text-sm text-gray-600 mt-1">{departmentUsers.length} {currentUserRole === 'rcs-admin' ? 'Divisions' : currentUserRole === 'department' ? 'Users' : 'Users'}</p>
+                  <p className="text-sm text-gray-600 mt-1">{departmentUsers.length} {currentUserRole === 'rcs-admin' ? 'Divisions' : currentUserRole === 'department' ? 'Users' : 'Users'}</p>
                 </div>
                 <button
                   onClick={() => setShowModal(false)}
@@ -786,17 +1054,23 @@ const handleUserFormSubmit = async (e) => {
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center">
                               <span className="text-white font-medium text-sm">
-                                {user.username ? user.username.charAt(0).toUpperCase() : 'U'}
+                                {user.username ? user.username.charAt(0).toUpperCase() : user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                               </span>
                             </div>
                             <div>
-                              <h4 className="font-medium text-gray-900">{user.username}</h4>
+                              <h4 className="font-medium text-gray-900">{user.name || user.username}</h4>
                               <p className="text-sm text-gray-600">{user.role}</p>
+                              {user.address && <p className="text-xs text-gray-500">{user.address}</p>}
+                              {user.jailerInfo && <p className="text-xs text-gray-500">Jailer: {user.jailerInfo}</p>}
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm text-gray-600">{user.mobile}</p>
-                            <p className="text-xs text-gray-500">Mobile</p>
+                            {user.mobile && (
+                              <>
+                                <p className="text-sm text-gray-600">{user.mobile}</p>
+                                <p className="text-xs text-gray-500">Mobile</p>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -822,7 +1096,7 @@ const handleUserFormSubmit = async (e) => {
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
               <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-sky-800">
-                  Add {currentUserRole === 'department' ? 'Division' : ''} to {selectedDepartmentName}
+                  Add {currentUserRole === 'department' ? 'Division' : 'User'} to {selectedDepartmentName}
                 </h2>
                 <button
                   onClick={() => {

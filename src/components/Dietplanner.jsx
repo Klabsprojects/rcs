@@ -360,28 +360,8 @@ const handleSaveSegmentPlan = async (plan) => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
-      {/* Header with segments info */}
-      <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Diet Planner</h1>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">
-              Total Segments: {segmentsLoading ? 'Loading...' : segments.length}
-            </span>
-            {segmentsLoading && (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            )}
-          </div>
-          {!segmentsLoading && (
-            <button
-              onClick={fetchSegments}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-            >
-              Refresh Segments
-            </button>
-          )}
-        </div>
-      </div>
+    
+      
 
       {/* Form for creating users */}
       <div className="bg-sky-50 p-4 rounded shadow mb-6 flex gap-4 items-end">
@@ -520,14 +500,22 @@ const handleSaveSegmentPlan = async (plan) => {
                               {plan.type}
                             </span>
                           </div>
-                          <div className="space-y-1">
-                            <h6 className="text-sm font-medium text-gray-700">Items:</h6>
-                            {plan.items && plan.items.map((item, itemIndex) => (
-                              <div key={itemIndex} className="text-sm text-gray-600 ml-2">
-                                • {item.name}: {item.qty} {item.unit}
-                              </div>
-                            ))}
-                          </div>
+                  <div className="space-y-1">
+  {plan.days && plan.days.length > 0 && (
+    <div className="mb-2">
+      <h6 className="text-sm font-medium text-gray-700">Days:</h6>
+      <div className="text-sm text-gray-600 ml-2">
+        {plan.days.join(', ')}
+      </div>
+    </div>
+  )}
+  <h6 className="text-sm font-medium text-gray-700">Items:</h6>
+  {plan.items && plan.items.map((item, itemIndex) => (
+    <div key={itemIndex} className="text-sm text-gray-600 ml-2">
+      • {item.name}: {item.qty} {item.unit}
+    </div>
+  ))}
+</div>
                         </div>
                       </div>
                     ))}
@@ -546,59 +534,6 @@ const handleSaveSegmentPlan = async (plan) => {
         </div>
       )}
 
-      {/* User List */}
-      <div className="bg-white rounded shadow divide-y">
-        {userInfoList.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            No users created yet. Create a user to start planning diets.
-          </div>
-        ) : (
-          userInfoList.map((user, index) => (
-            <div key={index}>
-              <div 
-                className="p-4 hover:bg-gray-100 cursor-pointer flex justify-between"
-                onClick={() => setSelectedUserIndex(index)}
-              >
-                <div>
-                  <p className="font-semibold text-gray-800">{user.type} - {user.role} ({user.dietType})</p>
-                  <p className="text-xs text-blue-600">Segment ID: {user.segmentId}</p>
-                </div>
-                <div className="flex items-center">
-                  {user.plans.length > 0 ? (
-                    <button
-                      className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleViewPlan(index);
-                      }}
-                    >
-                      View Plan ({user.plans.length})
-                    </button>
-                  ) : (
-                    <button
-                      className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedUserIndex(index);
-                        setShowModal(true);
-                      }}
-                    >
-                      Add Plan
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              {/* Expanded plan details */}
-              {expandedUserIndex === index && user.plans.length > 0 && (
-                <div className="bg-gray-50 p-4 border-t border-gray-200">
-                  <PlanDetails plan={user.plans[0]} segmentData={user.segmentData} />
-                </div>
-              )}
-            </div>
-          ))
-        )}
-      </div>
 
       {/* Modal for creating diet plans for segments */}
       {showSegmentPlanModal && selectedSegmentForPlan && (
