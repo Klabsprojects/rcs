@@ -117,51 +117,82 @@ const DietPlanner = () => {
   };
 
   // NEW: POST API call to save diet plan to specific segment
-  const savePlanToSegment = async (segmentId, planData) => {
-    try {
-      setLoading(true);
-      setApiError('');
-      
-      const token = localStorage.getItem('authToken');
-      
-      if (!token) {
-        throw new Error('Authentication token not found. Please login again.');
-      }
-
-      const response = await fetch(`${API_BASE_URL}/segment/${segmentId}/plan`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(planData)
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Session expired. Please login again.');
-        }
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('Plan saved successfully:', result);
-      return result;
-    } catch (error) {
-      console.error('Error saving plan:', error);
-      setApiError(error.message);
-      throw error;
-    } finally {
-      setLoading(false);
+const savePlanToSegment = async (segmentId, planData) => {
+  try {
+    setLoading(true);
+    setApiError('');
+    
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+      throw new Error('Authentication token not found. Please login again.');
     }
-  };
 
-  const handleUserCreation = async () => {
-    const { type, role, dietType } = formInputs;
-    if (!type || !role || !dietType) {
-      alert('Please fill all fields');
-      return;
+    // Debug logging
+    console.log('=== API Call Debug Info ===');
+    console.log('Segment ID:', segmentId);
+    console.log('Plan Data:', JSON.stringify(planData, null, 2));
+    console.log('API URL:', `${API_BASE_URL}/segment/${segmentId}/plan`);
+    console.log('Token (first 20 chars):', token.substring(0, 20) + '...');
+
+    const response = await fetch(`${API_BASE_URL}/segment/${segmentId}/plan`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token, // No Bearer prefix as requested
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(planData)
+    });
+
+    console.log('Response status:', response.status);
+    console.log('Response status text:', response.statusText);
+
+    // Get response body regardless of status
+    let responseBody;
+    const contentType = response.headers.get('content-type');
+    
+    if (contentType && contentType.includes('application/json')) {
+      responseBody = await response.json();
+    } else {
+      responseBody = await response.text();
     }
+    
+    console.log('Response body:', responseBody);
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Session expired. Please login again.');
+      }
+      
+      // Create detailed error message
+      let errorMessage = `API Error: ${response.status} - ${response.statusText}`;
+      
+      if (typeof responseBody === 'object' && responseBody.message) {
+        errorMessage += ` - ${responseBody.message}`;
+      } else if (typeof responseBody === 'string') {
+        errorMessage += ` - ${responseBody}`;
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    console.log('✅ Plan saved successfully');
+    return responseBody;
+  } catch (error) {
+    console.error('❌ Error saving plan:', error);
+    setApiError(error.message);
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+};
+
+ const handleUserCreation = async () => {
+  const { type, role, dietType } = formInputs;
+  if (!type || !role || !dietType) {
+    alert('Please fill all fields');
+    return;
+  }
 
     // Map dietType to API format
     const dietMapping = {
@@ -169,99 +200,118 @@ const DietPlanner = () => {
       'non-veg': 'Non-Vegetarian'
     };
 
-    const segmentData = await fetchSegmentData(type, role, dietMapping[dietType]);
+
+  const segmentData = await fetchSegmentData(type, role, dietMapping[dietType]);
+  
+  if (apiError || !segmentData) {
+    alert(`Failed to fetch segment data: ${apiError || 'Unknown error'}`);
+    return;
+  }
+
+  // Debug: Log the entire segmentData response
+  console.log('Full segment data response:', JSON.stringify(segmentData, null, 2));
+
+  // Extract segment ID from response - try multiple possible locations
+  let segmentId = null;
+  if (segmentData.user && segmentData.user.id) {
+    segmentId = segmentData.user.id;
+    console.log('Found segment ID in segmentData.user.id:', segmentId);
+  } else if (segmentData.data && segmentData.data.id) {
+    segmentId = segmentData.data.id;
+    console.log('Found segment ID in segmentData.data.id:', segmentId);
+  } else if (segmentData.id) {
+    segmentId = segmentData.id;
+    console.log('Found segment ID in segmentData.id:', segmentId);
+  } else {
+    // Try to find any ID field in the response
+    console.error('Could not find segment ID in response structure');
+    console.log('Available keys in segmentData:', Object.keys(segmentData));
     
-    if (apiError || !segmentData) {
-      alert(`Failed to fetch segment data: ${apiError || 'Unknown error'}`);
-      return;
-    }
-
-    // Try to find segment ID from different possible locations in the response
-    let segmentId = null;
-    
-    if (segmentData.data && Array.isArray(segmentData.data) && segmentData.data.length > 0) {
-      // If data is an array, take the first segment's ID
-      segmentId = segmentData.data[0].id;
-    } else if (segmentData.data && segmentData.data.id) {
-      // If data is an object with id
-      segmentId = segmentData.data.id;
-    } else if (segmentData.id) {
-      // If id is directly in the response
-      segmentId = segmentData.id;
-    } else if (segmentData.user && segmentData.user.id) {
-      // If the segment ID is in user.id (based on your response structure)
-      segmentId = segmentData.user.id;
-    }
-
-    console.log('Segment data received:', segmentData);
-    console.log('Extracted segment ID:', segmentId);
-
-    const newUser = {
-      ...formInputs,
-      plans: [],
-      segmentData: segmentData,
-      segmentId: segmentId // Store segment ID for API calls
+    // Check if there's an ID anywhere in the response
+    const findId = (obj, path = '') => {
+      for (const [key, value] of Object.entries(obj)) {
+        if (key.toLowerCase().includes('id') && (typeof value === 'string' || typeof value === 'number')) {
+          console.log(`Found potential ID at ${path}${key}:`, value);
+        }
+        if (typeof value === 'object' && value !== null) {
+          findId(value, `${path}${key}.`);
+        }
+      }
     };
+    findId(segmentData);
+  }
 
-    setUserInfoList([...userInfoList, newUser]);
-    setFormInputs({ type: '', role: '', dietType: '' });
+  const newUser = {
+    ...formInputs,
+    plans: [],
+    segmentData: segmentData,
+    segmentId: segmentId
   };
 
-  const handleSavePlan = async (plan) => {
-    const user = userInfoList[selectedUserIndex];
-    
-    console.log('User data:', user);
-    console.log('User segment ID:', user.segmentId);
-    
-    if (!user.segmentId) {
-      alert('No segment ID found for this user. Please check the console for debug info and recreate the user.');
-      console.error('User object:', user);
-      console.error('Segment data:', user.segmentData);
-      return;
-    }
+  console.log('Created user with segment ID:', segmentId);
+  setUserInfoList([...userInfoList, newUser]);
+  setFormInputs({ type: '', role: '', dietType: '' });
+};
 
-    // Transform plan data to match API format
-    const planData = {
-      name: `${plan.formType === 'per-day' ? 'Day' : plan.formType === 'per-week' ? 'Week' : 'Month'} Plan`,
-      type: plan.formType === 'per-day' ? 'Day' : plan.formType === 'per-week' ? 'Week' : 'Month',
-      items: plan.items.map(item => ({
-        name: item.name,
-        qty: parseInt(item.quantity) || 0,
-        unit: item.unit === 'gram' ? 'Grams' : 
-              item.unit === 'ml' ? 'Ml' : 
-              item.unit === 'piece' ? 'Pcs' : 
-              item.unit === 'kg' ? 'Kg' : 
-              item.unit === 'L' ? 'L' : item.unit
-      }))
-    };
+const handleSavePlan = async (plan) => {
+  const user = userInfoList[selectedUserIndex];
+  
+  console.log('User object:', user);
+  console.log('User segment ID:', user.segmentId);
+  
+  if (!user.segmentId) {
+    alert('No segment ID found for this user. Please recreate the user.');
+    return;
+  }
 
-    // Add days if it's a weekly plan
-    if (plan.formType === 'per-week' && plan.days) {
-      planData.days = plan.days;
-    }
+  // Validate segment ID is a valid number or string
+  if (user.segmentId === null || user.segmentId === undefined || user.segmentId === '') {
+    alert('Invalid segment ID. Please recreate the user.');
+    return;
+  }
 
-    console.log('Plan data to be sent:', planData);
-    console.log('Segment ID for API call:', user.segmentId);
-
-    try {
-      const result = await savePlanToSegment(user.segmentId, planData);
-      
-      // Update local state only if API call was successful
-      const updatedList = [...userInfoList];
-      updatedList[selectedUserIndex].plans.push({
-        ...plan,
-        userType: user.type,
-        role: user.role,
-        dietType: user.dietType,
-        apiResponse: result // Store API response for reference
-      });
-      setUserInfoList(updatedList);
-      
-      alert('Plan saved successfully!');
-    } catch (error) {
-      alert(`Failed to save plan: ${error.message}`);
-    }
+  // Transform plan data to match API format
+  const planData = {
+    name: `${plan.formType === 'per-day' ? 'Day' : plan.formType === 'per-week' ? 'Week' : 'Month'} Plan`,
+    type: plan.formType === 'per-day' ? 'Day' : plan.formType === 'per-week' ? 'Week' : 'Month',
+    items: plan.items.map(item => ({
+      name: item.name,
+      qty: parseInt(item.quantity) || 0,
+      unit: item.unit === 'gram' ? 'Grams' : 
+            item.unit === 'ml' ? 'Ml' : 
+            item.unit === 'piece' ? 'Pcs' : 
+            item.unit === 'kg' ? 'Kg' : 
+            item.unit === 'L' ? 'L' : item.unit
+    }))
   };
+
+  // Add days if it's a weekly plan
+  if (plan.formType === 'per-week' && plan.days) {
+    planData.days = plan.days;
+  }
+
+  console.log('Final plan data to send:', planData);
+
+  try {
+    const result = await savePlanToSegment(user.segmentId, planData);
+    
+    // Update local state only if API call was successful
+    const updatedList = [...userInfoList];
+    updatedList[selectedUserIndex].plans.push({
+      ...plan,
+      userType: user.type,
+      role: user.role,
+      dietType: user.dietType,
+      apiResponse: result
+    });
+    setUserInfoList(updatedList);
+    
+    alert('Plan saved successfully!');
+  } catch (error) {
+    console.error('Failed to save plan:', error);
+    alert(`Failed to save plan: ${error.message}`);
+  }
+};
 
   const handleViewPlan = (userIndex) => {
     setExpandedUserIndex(expandedUserIndex === userIndex ? null : userIndex);
@@ -394,9 +444,7 @@ const DietPlanner = () => {
                 <p className="text-xs text-gray-600">
                   Diet: {segment.diet || 'N/A'}
                 </p>
-                {segment.id && (
-                  <p className="text-xs text-blue-600">ID: {segment.id}</p>
-                )}
+                <p className="text-xs text-blue-600">ID: {segment.id}</p>
               </div>
             ))}
           </div>
@@ -423,11 +471,6 @@ const DietPlanner = () => {
               >
                 <div>
                   <p className="font-semibold text-gray-800">{user.type} - {user.role} ({user.dietType})</p>
-                  {user.segmentData && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      API Data Loaded {user.segmentId && `(Segment ID: ${user.segmentId})`}
-                    </p>
-                  )}
                 </div>
                 <div className="flex items-center">
                   {user.plans.length > 0 ? (
@@ -589,9 +632,6 @@ const DietPlannerForm = ({ userInfo, onSavePlan, loading }) => {
           <p className="text-sm text-green-700">
             {userInfo.type} - {userInfo.role} ({userInfo.dietType === 'veg' ? 'Vegetarian' : 'Non-Vegetarian'})
           </p>
-          {userInfo.segmentId && (
-            <p className="text-xs text-green-600 mt-1">Segment ID: {userInfo.segmentId}</p>
-          )}
           {userInfo.segmentData.error === false && (
             <p className="text-xs text-green-600 mt-1">✓ Segment data loaded successfully</p>
           )}
