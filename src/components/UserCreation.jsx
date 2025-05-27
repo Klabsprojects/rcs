@@ -217,12 +217,11 @@ useEffect(() => {
     const count = parseInt(formData.count);
     if (count > 0) {
 const rows = Array.from({ length: count }, (_, index) => ({
-        id: index + 1,
-        domainName: '',
-        name: '',
-        address: '',
-        jailerInfo: ''
-      }));
+  id: index + 1,
+  name: '',
+  address: '',
+  roleName: ''
+}));
       setDivisionRows(rows);
     } else {
       setDivisionRows([]);
@@ -308,9 +307,9 @@ divisionRows.forEach((row, index) => {
   if (!row.address.trim()) {
     newErrors[`row_${index}_address`] = `Row ${index + 1} address is required`;
   }
-  if (!row.jailerInfo.trim()) {
-    newErrors[`row_${index}_jailerInfo`] = `Row ${index + 1} jailer info is required`;
-  }
+if (!row.roleName.trim()) {
+  newErrors[`row_${index}_roleName`] = `Row ${index + 1} role name is required`;
+}
 });
   } else {
     // For other roles, keep original validation
@@ -936,42 +935,28 @@ const handleUserFormSubmit = async (e) => {
             <thead>
        <tr className="bg-gray-100">
     <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">S.No</th>
-    <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">User Details</th>
+ <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">Name</th>
     <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">Address</th>
-    <th className="px-3 py-2 text-left text-sm font-medium">Jailer Info</th>
+<th className="px-3 py-2 text-left text-sm font-medium">Username</th>
   </tr>
             </thead>
          <tbody>
               {group.rows.map((row, rowIndex) => (
                 <tr key={row.id} className="hover:bg-gray-50">
                   <td className="border-r border-t border-gray-300 px-2 py-1">{rowIndex + 1}</td>
-                  <td className="border-r border-t border-gray-300 px-1 py-1">
-                    {editingGroupId === group.id ? (
-                      <div className="space-y-1">
-                        <input
-                          type="text"
-                          value={row.domainName || ''}
-                          onChange={(e) => handleDivisionGroupRowChange(groupIndex, rowIndex, 'domainName', e.target.value)}
-                          className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:border-sky-500 outline-none"
-                          placeholder="Enter domain name"
-                        />
-                        <div className="flex items-center space-x-1">
-                          <span className="text-xs text-gray-500">rolename@</span>
-                          <input
-                            type="text"
-                            value={row.domainName || ''}
-                            readOnly
-                            className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm bg-gray-100 text-gray-600"
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        <span className="px-2 py-1 text-sm">{row.domainName}</span>
-                        <span className="px-2 py-1 text-sm">rolename@{row.domainName}</span>
-                      </div>
-                    )}
-                  </td>
+                 <td className="border-r border-t border-gray-300 px-1 py-1">
+  {editingGroupId === group.id ? (
+    <input
+      type="text"
+      value={row.name || ''}
+      onChange={(e) => handleDivisionGroupRowChange(groupIndex, rowIndex, 'name', e.target.value)}
+      className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:border-sky-500 outline-none"
+      placeholder="Enter name"
+    />
+  ) : (
+    <span className="px-2 py-1 text-sm">{row.name}</span>
+  )}
+</td>
                   <td className="border-r border-t border-gray-300 px-1 py-1">
                     {editingGroupId === group.id ? (
                       <textarea
@@ -985,19 +970,11 @@ const handleUserFormSubmit = async (e) => {
                       <span className="px-2 py-1 text-sm">{row.address}</span>
                     )}
                   </td>
-                  <td className="border-t border-gray-300 px-1 py-1">
-                    {editingGroupId === group.id ? (
-                      <input
-                        type="text"
-                        value={row.jailerInfo}
-                        onChange={(e) => handleDivisionGroupRowChange(groupIndex, rowIndex, 'jailerInfo', e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:border-sky-500 outline-none"
-                        placeholder="Enter jailer info"
-                      />
-                    ) : (
-                      <span className="px-2 py-1 text-sm">{row.jailerInfo}</span>
-                    )}
-                  </td>
+<td className="border-t border-gray-300 px-1 py-1">
+  <div className="px-2 py-1 bg-gray-100 rounded text-sm text-gray-600">
+    rolename@{row.name ? row.name.split(' ')[0].toLowerCase() : ''}
+  </div>
+</td>
                 </tr>
               ))}
             </tbody>
@@ -1100,37 +1077,26 @@ const handleUserFormSubmit = async (e) => {
     <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">S.No</th>
     <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">Name</th>
     <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">Address</th>
-    <th className="px-3 py-2 text-left text-sm font-medium">Jailer Info</th>
+<th className="px-3 py-2 text-left text-sm font-medium">Rolename Suffix</th>
   </tr>
 </thead>
       <tbody>
         {divisionRows.map((row, index) => (
 <tr key={row.id} className="hover:bg-gray-50">
             <td className="border border-gray-300 px-3 py-2 text-sm">{index + 1}</td>
-            <td className="border border-gray-300 px-2 py-1">
-              <div className="space-y-1">
-                <input
-                  type="text"
-                  value={row.domainName || ''}
-                  onChange={(e) => handleDivisionRowChange(index, 'domainName', e.target.value)}
-                  className={`w-full px-2 py-1 border ${errors[`row_${index}_domainName`] ? 'border-red-500' : 'border-gray-200'
-                    } rounded text-sm focus:border-sky-500 outline-none`}
-                  placeholder="Enter domain name"
-                />
-                <div className="flex items-center space-x-1">
-                  <span className="text-xs text-gray-500">rolename@</span>
-                  <input
-                    type="text"
-                    value={row.domainName || ''}
-                    readOnly
-                    className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm bg-gray-100 text-gray-600"
-                  />
-                </div>
-              </div>
-              {errors[`row_${index}_domainName`] && (
-                <p className="text-xs text-red-600 mt-1">{errors[`row_${index}_domainName`]}</p>
-              )}
-            </td>
+<td className="border border-gray-300 px-2 py-1">
+  <input
+    type="text"
+    value={row.name || ''}
+    onChange={(e) => handleDivisionRowChange(index, 'name', e.target.value)}
+    className={`w-full px-2 py-1 border ${errors[`row_${index}_name`] ? 'border-red-500' : 'border-gray-200'
+      } rounded text-sm focus:border-sky-500 outline-none`}
+    placeholder="Enter name"
+  />
+  {errors[`row_${index}_name`] && (
+    <p className="text-xs text-red-600 mt-1">{errors[`row_${index}_name`]}</p>
+  )}
+</td>
             <td className="border border-gray-300 px-2 py-1">
               <textarea
                 value={row.address}
@@ -1144,19 +1110,11 @@ const handleUserFormSubmit = async (e) => {
                 <p className="text-xs text-red-600 mt-1">{errors[`row_${index}_address`]}</p>
               )}
             </td>
-            <td className="border border-gray-300 px-2 py-1">
-              <input
-                type="text"
-                value={row.jailerInfo}
-                onChange={(e) => handleDivisionRowChange(index, 'jailerInfo', e.target.value)}
-                className={`w-full px-2 py-1 border ${errors[`row_${index}_jailerInfo`] ? 'border-red-500' : 'border-gray-200'
-                  } rounded text-sm focus:border-sky-500 outline-none`}
-                placeholder="Enter jailer info"
-              />
-              {errors[`row_${index}_jailerInfo`] && (
-                <p className="text-xs text-red-600 mt-1">{errors[`row_${index}_jailerInfo`]}</p>
-              )}
-            </td>
+<td className="border border-gray-300 px-2 py-1">
+  <div className="px-2 py-1 bg-gray-100 rounded text-sm text-gray-600">
+    rolename@{row.name ? row.name.split(' ')[0].toLowerCase() : ''}
+  </div>
+</td>
           </tr>
         ))}
       </tbody>
