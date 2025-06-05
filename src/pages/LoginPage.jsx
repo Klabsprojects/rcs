@@ -43,7 +43,7 @@ const LoginPage = () => {
         localStorage.setItem('user', JSON.stringify(data.user));
         localStorage.setItem('loginResponse', JSON.stringify(data));
         
-        window.location.href = '/dashboard';
+        window.location.href = '/user-creation';
       } else {
         setError(data.message || 'Login failed');
       }

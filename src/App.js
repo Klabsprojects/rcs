@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 
 // Import the API interceptor - this sets up global session handling
 import './services/apiInterceptor';
-
+import MastersPage from './pages/Masters';
 import Header from './components/Header';
 import DietPlanner from './components/Dietplanner';
 import Dashboard from './components/Dashboard';
@@ -60,6 +60,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <DietPlanner />
+                </ProtectedRoute>
+              } 
+            />
+                  <Route 
+              path="/masters" 
+              element={
+                <ProtectedRoute>
+                  <MastersPage />
                 </ProtectedRoute>
               } 
             />

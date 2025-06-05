@@ -16,8 +16,6 @@ const UserManagement = () => {
     return 'user';
   };
 
-  const [currentUserRole] = useState(getCurrentUserRole());
-
   // State for form fields
   const [formData, setFormData] = useState({
     p_id: null,
@@ -26,49 +24,85 @@ const UserManagement = () => {
     password: '',
     role: '',
     mobile: '',
-    count: '', // New field for number input
+    count: '',
+    branchType: '', // Add this line
   });
 
+  const [currentUserRole] = useState(getCurrentUserRole());
+
+  const newBranch = {
+    id: Date.now(),
+    name: formData.name,
+    branchType: 'Branch',
+    details: []
+  };
+
+  const [showAddUserForm, setShowAddUserForm] = useState(false);
+  const [selectedBranchForUser, setSelectedBranchForUser] = useState(null);
+const [addUserForm, setAddUserForm] = useState({
+  name: '',
+  district: '',
+  contact: '',
+  address: '',
+  suffix: ''
+});
+
+  const [expandedBranchId, setExpandedBranchId] = useState(null);
+const [expandedTypes, setExpandedTypes] = useState([]);
+const [selectedUser, setSelectedUser] = useState(null);
+const [openBranchForm, setOpenBranchForm] = useState(null); // Add this line
+  const [isEditingUser, setIsEditingUser] = useState(false);
+
+  const [showNewUserField, setShowNewUserField] = useState(false);
+
+
+  const [isCreatingTypeFromTop, setIsCreatingTypeFromTop] = useState(false);
+
+  const [isAddingBranchUsers, setIsAddingBranchUsers] = useState(false);
+
+  const [editingUsers, setEditingUsers] = useState([]);
+
   // New state for division rows
-const [divisionRows, setDivisionRows] = useState([]);
-const [divisionGroups, setDivisionGroups] = useState([]);
-// State for editing division groups
-const [editingGroupId, setEditingGroupId] = useState(null);
+  const [divisionRows, setDivisionRows] = useState([]);
+  const [divisionGroups, setDivisionGroups] = useState([]);
+  // State for editing division groups
+  const [editingGroupId, setEditingGroupId] = useState(null);
   // State for users list
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  const [formMode, setFormMode] = useState('createBranch'); // 'createBranch' or 'addUser'
   // Modal state
-  const [showModal, setShowModal] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState(null);
-  const [departmentUsers, setDepartmentUsers] = useState([]);
+const [expandedDepartments, setExpandedDepartments] = useState([]);
 
   // State for form submission and validation
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitSuccess, setSubmitSuccess] = useState(false);
-
+const [branchUsers, setBranchUsers] = useState({}); // Store users per branch
   // State for form visibility
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(currentUserRole === 'department' ? true : false);
 
   const [showUserFormModal, setShowUserFormModal] = useState(false);
   const [selectedDepartmentName, setSelectedDepartmentName] = useState('');
-  const [userForm, setUserForm] = useState({ username: '', password: '', mobile: '' });
+  const [userForm, setUserForm] = useState({ username: '', password: '', mobile: '', name: '', district: '' });
   const [userFormErrors, setUserFormErrors] = useState({});
 
+  const [newUserName, setNewUserName] = useState('');
+
+
   // Get the appropriate role for creation based on current user role
-const getTargetRole = () => {
-  switch (currentUserRole) {
-    case 'rcs-admin':
-      return 'department';
-    case 'department':
-      return 'division';
-    case 'division':
-      return 'accounts';
-    default:
-      return 'accounts';
-  }
-};
+  const getTargetRole = () => {
+    switch (currentUserRole) {
+      case 'rcs-admin':
+        return 'department';
+      case 'department':
+        return 'division';
+      case 'division':
+        return 'accounts';
+      default:
+        return 'accounts';
+    }
+  };
   // Get appropriate labels based on current user role
   const getLabels = () => {
     switch (currentUserRole) {
@@ -86,11 +120,11 @@ const getTargetRole = () => {
         return {
           entityName: 'Division',
           entityNamePlural: 'Divisions',
-          createButtonText: 'Add division',
+          createButtonText: 'Create Divisons',
           formTitle: 'Create New Division',
           successMessage: 'Division has been created successfully.',
-          nameLabel: 'Division Name',
-          namePlaceholder: 'Enter division name'
+          nameLabel: 'Name',
+          namePlaceholder: 'Enter name'
         };
       case 'division':
         return {
@@ -116,8 +150,52 @@ const getTargetRole = () => {
   };
 
   const labels = getLabels();
+const generateUsernameSuffix = (branchType, district) => {
+  // Get user info from localStorage
+  const userInfo = localStorage.getItem('user');
+  let departmentShortForm = '';
+  
+  if (userInfo) {
+    try {
+      const parsed = JSON.parse(userInfo);
+      const departmentName = parsed.name || '';
+      
+      // Extract first letter of each word to create department short form
+      const words = departmentName.trim().split(' ');
+      departmentShortForm = words.map(word => word.charAt(0).toUpperCase()).join('');
+    } catch (error) {
+      console.error('Error parsing user info for suffix generation:', error);
+      departmentShortForm = 'DEP'; // fallback
+    }
+  }
+  
+  // Get first 3 characters of branch type and district
+  const branchTypeShort = branchType ? branchType.substring(0, 3).toUpperCase() : '';
+  const districtShort = district ? district.substring(0, 3).toUpperCase() : '';
+  
+  // Format: TN + DepartmentShortForm + BranchTypeFirst3 + DistrictFirst3
+  return `TN${departmentShortForm}${branchTypeShort}${districtShort}`;
+};
+const handleCreateAllBranches = async () => {
+  console.log('Button clicked!');
+  console.log('divisionGroups:', divisionGroups);
+  console.log('formData:', formData);
+  
+  if (divisionGroups.length === 0) {
+    console.log('No division groups to process');
+    setErrors({ general: 'Please create some branch types first before submitting.' });
+    return;
+  }
 
-  // Enhanced error parsing function
+  // Create a fake event object for handleSubmit
+  const fakeEvent = {
+    preventDefault: () => console.log('preventDefault called')
+  };
+  
+  console.log('About to call handleSubmit');
+  await handleSubmit(fakeEvent);
+  console.log('handleSubmit completed');
+};
   const parseApiError = (errorResponse) => {
     try {
       // If it's already a string, return it
@@ -177,11 +255,64 @@ const getTargetRole = () => {
   useEffect(() => {
     fetchUsers();
   }, []);
+// Add this useEffect after your existing useEffects
+// Load branch data on component mount for department role
+useEffect(() => {
+  if (currentUserRole === 'department') {
+    fetchBranchDetails();
+  }
+}, [currentUserRole]);
+const handleTypeClick = async (departmentName, typeName) => {
+  // Remove second level expansion - types are no longer clickable
+  return;
+};
+const fetchBranchesByType = async (branchType) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/user/branches?type=${encodeURIComponent(branchType)}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
-  // Generate division rows when count changes
-
-
-  // Fetch users from API with enhanced error handling
+    const result = await response.json();
+    
+    if (result.error === false && result.data) {
+      // Transform the API response to match your frontend structure
+      const transformedBranches = [];
+      
+      Object.keys(result.data).forEach(typeKey => {
+        if (typeKey === branchType || typeKey === 'undefined') {
+          Object.keys(result.data[typeKey]).forEach(locationKey => {
+            const branchUsers = result.data[typeKey][locationKey];
+            if (branchUsers && branchUsers.length > 0) {
+              // Get branch info from the first user (all users in same branch have same branch info)
+              const firstUser = branchUsers[0];
+              const branch = {
+                id: `${typeKey}-${locationKey}`, // Create unique ID
+                name: firstUser.branch || locationKey,
+                district: firstUser.detail?.location || locationKey,
+                contact: firstUser.detail?.contact || '',
+                suffix: firstUser.username?.split('@')[1] || '',
+                branch_type: firstUser.detail?.branch_type || firstUser.branch_type || typeKey,
+                users: branchUsers // Store all users for this branch
+              };
+              transformedBranches.push(branch);
+            }
+          });
+        }
+      });
+      
+      return transformedBranches;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching branches:', error);
+    return [];
+  }
+};
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('authToken');
@@ -211,53 +342,247 @@ const getTargetRole = () => {
       setLoading(false);
     }
   };
-// Generate division rows when count changes
-useEffect(() => {
-  if (currentUserRole === 'department' && formData.count && formData.name) {
-    const count = parseInt(formData.count);
-    if (count > 0) {
-const rows = Array.from({ length: count }, (_, index) => ({
-  id: index + 1,
-  name: '',
-  address: '',
-  roleName: ''
-}));
-      setDivisionRows(rows);
-    } else {
-      setDivisionRows([]);
+  // Generate division rows when count changes
+  useEffect(() => {
+    if (currentUserRole === 'department' && formData.count && formData.name) {
+      const count = parseInt(formData.count);
+      if (count > 0) {
+        const rows = Array.from({ length: count }, (_, index) => ({
+          id: index + 1,
+          name: '',
+          address: '',
+          roleName: '',
+          suffix: ''
+        }));
+        setDivisionRows(rows);
+      } else {
+        setDivisionRows([]);
+      }
     }
+  }, [formData.count, formData.name, currentUserRole]);
+// Add this new function after fetchUsers
+const fetchBranchDetails = async () => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/user`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const result = await response.json();
+    
+    if (result.error === false && result.data) {
+      const processedGroups = [];
+      
+      // Iterate through each branch type (Child Care, Primary Health Care, etc.)
+      Object.keys(result.data).forEach(branchType => {
+        const branches = [];
+        
+        // Iterate through each branch location under this type
+        Object.keys(result.data[branchType]).forEach(branchKey => {
+          const users = result.data[branchType][branchKey];
+          
+          if (users && users.length > 0) {
+            const firstUser = users[0];
+            
+            // If branchKey is "undefined", use the location as branch name
+            // If branchKey has a value (like "Chennai"), use that as branch name
+            const branchName = branchKey === 'undefined' ? firstUser.location : branchKey;
+            
+            branches.push({
+              id: `${branchType}-${branchKey}`,
+              name: branchName, // This will be "Chennai" or "AVR complex" correctly
+              district: firstUser.location, // This will be "Guindy" for Chennai, "AVR complex" for undefined
+              contact: firstUser.contact || '',
+              suffix: firstUser.username?.split('@')[1] || '',
+              users: users
+            });
+          }
+        });
+        
+        // Add the branch type group with branches loaded
+        if (branches.length > 0) {
+          processedGroups.push({
+            id: Date.now() + Math.random(),
+            name: branchType,
+            details: branches
+          });
+        }
+      });
+      
+      setDivisionGroups(processedGroups);
+    }
+  } catch (error) {
+    console.error('Error fetching branch details:', error);
   }
-}, [formData.count, formData.name, currentUserRole]);
-  // Get departments from users data
-// Get departments from users data
-// Get departments from users data
+};
+
+// Add this function after fetchUsers
+const fetchBranchesForType = async (typeName) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/user`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const result = await response.json();
+    
+    if (result.error === false && result.data && result.data[typeName]) {
+      const branches = [];
+      
+      Object.keys(result.data[typeName]).forEach(branchKey => {
+        const users = result.data[typeName][branchKey];
+        
+        if (users && users.length > 0) {
+          const firstUser = users[0];
+          
+          // Use branch name from API or location if branch is undefined
+          const branchName = branchKey === 'undefined' ? firstUser.location : branchKey;
+          
+          branches.push({
+            id: `${typeName}-${branchKey}`,
+            name: branchName,
+            district: firstUser.location || branchKey,
+            contact: firstUser.contact || '',
+            suffix: firstUser.username?.split('@')[1] || '',
+            users: users
+          });
+        }
+      });
+      
+      return branches;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching branches for type:', error);
+    return [];
+  }
+};
 const getDepartments = () => {
+  if (!users) {
+    return [];
+  }
+  
+  // For rcs-admin, get departments from API structure
+  if (currentUserRole === 'rcs-admin') {
+    if (typeof users !== 'object') return [];
+return Object.keys(users).filter(key => key !== 'user').map(departmentName => {
+  const departmentData = users[departmentName] || {};
+  const typeCount = Object.keys(departmentData).length;
+  
+  // Calculate total branches and users
+  let totalBranches = 0;
+  let totalUsers = 0;
+  
+  Object.values(departmentData).forEach(branches => {
+    totalBranches += Object.keys(branches).length;
+    Object.values(branches).forEach(branchUsers => {
+      if (Array.isArray(branchUsers)) {
+        totalUsers += branchUsers.length;
+      }
+    });
+  });
+  
+  return {
+    id: departmentName,
+    name: departmentName,
+    typeCount: typeCount,
+    totalBranches: totalBranches,
+    totalUsers: totalUsers
+  };
+});
+  }
+  
+  // For other roles, use existing logic
+  if (!Array.isArray(users)) {
+    return [];
+  }
   return users.map(user => ({
     id: user.id,
     name: user.name,
-    userCount: currentUserRole === 'rcs-admin' ? user.divisions : user.users
+    userCount: currentUserRole === 'rcs-admin' ? (user.divisions || 0) : (user.users || 0)
   }));
 };
 
   // Handle department click
-  const handleDepartmentClick = (department) => {
-    const usersInDept = users.filter(user => user.name === department.name);
-    setSelectedDepartment(department);
-    setDepartmentUsers(usersInDept);
-    setShowModal(true);
-  };
+  // Handle department click - Modified to fetch divisions by department ID
+const handleDepartmentClick = async (department) => {
+  try {
+    // Check if department is already expanded
+    const isExpanded = expandedDepartments.find(d => d.id === department.id);
+    
+    if (isExpanded) {
+      // Collapse - remove from expanded list
+      setExpandedDepartments(expandedDepartments.filter(d => d.id !== department.id));
+      return;
+    }
+
+if (currentUserRole === 'rcs-admin') {
+      const departmentData = users[department.name] || {};
+      const types = Object.keys(departmentData).map(typeName => {
+        const branches = departmentData[typeName] || {};
+        const totalUsers = Object.values(branches).reduce((total, branchUsers) => {
+          return total + (Array.isArray(branchUsers) ? branchUsers.length : 0);
+        }, 0);
+        
+        return {
+          id: typeName,
+          name: typeName,
+          userCount: totalUsers,
+          branchCount: Object.keys(branches).length
+        };
+      });
+      
+      setExpandedDepartments([...expandedDepartments, {
+        ...department,
+        divisions: types
+      }]);
+    } else {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/user?division=${department.id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.error === false) {
+        setExpandedDepartments([...expandedDepartments, {
+          ...department,
+          divisions: result.data
+        }]);
+      } else {
+        console.error('Failed to fetch division details:', result.message);
+        setErrors({ fetch: 'Failed to load division details' });
+      }
+    }
+  } catch (error) {
+    console.error('Network error while fetching details:', error);
+    setErrors({ fetch: 'Network error while loading details' });
+  }
+};
   // Handle division group row changes
-const handleDivisionGroupRowChange = (groupIndex, rowIndex, field, value) => {
-  const updatedGroups = [...divisionGroups];
-  updatedGroups[groupIndex].rows[rowIndex][field] = value;
-  setDivisionGroups(updatedGroups);
-};
-// Handle division group name changes
-const handleDivisionGroupNameChange = (groupIndex, newName) => {
-  const updatedGroups = [...divisionGroups];
-  updatedGroups[groupIndex].name = newName;
-  setDivisionGroups(updatedGroups);
-};
+  const handleDivisionGroupRowChange = (groupIndex, rowIndex, field, value) => {
+    const updatedGroups = [...divisionGroups];
+    updatedGroups[groupIndex].rows[rowIndex][field] = value;
+    setDivisionGroups(updatedGroups);
+  };
+  // Handle division group name changes
+  const handleDivisionGroupNameChange = (groupIndex, newName) => {
+    const updatedGroups = [...divisionGroups];
+    updatedGroups[groupIndex].name = newName;
+    setDivisionGroups(updatedGroups);
+  };
   // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -275,60 +600,106 @@ const handleDivisionGroupNameChange = (groupIndex, newName) => {
     }
   };
 
-  // Handle division row changes
   const handleDivisionRowChange = (index, field, value) => {
     const updatedRows = [...divisionRows];
     updatedRows[index][field] = value;
+
+    if (field === 'name') {
+      // Extract all characters before the first space
+      const firstWord = value.split(' ')[0];
+      updatedRows[index].suffix = firstWord.toLowerCase(); // store as lowercase
+    }
+
     setDivisionRows(updatedRows);
   };
 
+
+
   // Validate form based on current user role
-// Validate form based on current user role
+  // Validate form based on current user role
 const validateForm = () => {
   const newErrors = {};
 
-  if (!formData.name.trim()) newErrors.name = `${labels.nameLabel} is required`;
-  
   if (currentUserRole === 'department') {
-    // For division creation, don't require username
-    if (!formData.count.trim()) {
-      newErrors.count = 'Count is required';
-    } else if (!/^\d+$/.test(formData.count) || parseInt(formData.count) <= 0) {
-      newErrors.count = 'Count must be a positive number';
+    // For department role, validate divisionGroups instead of formData
+    if (divisionGroups.length === 0) {
+      newErrors.general = 'Please create at least one branch type before submitting.';
     }
     
-    // Validate division rows
-// Validate division rows
-// Validate division rows
-divisionRows.forEach((row, index) => {
-  if (!row.name.trim()) {
-    newErrors[`row_${index}_name`] = `Row ${index + 1} name is required`;
+    // Check if any branch type has branches
+    const hasBranches = divisionGroups.some(group => group.details && group.details.length > 0);
+    if (!hasBranches) {
+      newErrors.general = 'Please add at least one branch to your branch types before submitting.';
+    }
+    
+    return newErrors; // Skip all other validation for department
   }
-  if (!row.address.trim()) {
-    newErrors[`row_${index}_address`] = `Row ${index + 1} address is required`;
-  }
-if (!row.roleName.trim()) {
-  newErrors[`row_${index}_roleName`] = `Row ${index + 1} role name is required`;
-}
-});
-  } else {
-    // For other roles, keep original validation
-    if (!formData.username.trim()) newErrors.username = 'Username is required';
-if (!formData.password.trim()) newErrors.password = 'Password is required';
 
-if (!formData.mobile.trim()) {
-  newErrors.mobile = 'Mobile number is required';
-} else if (!/^\d{10}$/.test(formData.mobile)) {
-  newErrors.mobile = 'Mobile number must be 10 digits';
-}
+  // Original validation for other roles
+  if (!formData.name.trim()) newErrors.name = `${labels.nameLabel} is required`;
+
+  if (!formData.username.trim()) newErrors.username = 'Username is required';
+  if (!formData.password.trim()) newErrors.password = 'Password is required';
+
+  if (!formData.mobile.trim()) {
+    newErrors.mobile = 'Mobile number is required';
+  } else if (!/^\d{10}$/.test(formData.mobile)) {
+    newErrors.mobile = 'Mobile number must be 10 digits';
   }
 
   return newErrors;
 };
 
-  // Handle form submission with enhanced error handling
+const getBranchCountForType = async (typeName) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/user`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const result = await response.json();
+    
+    if (result.error === false && result.data && result.data[typeName]) {
+      // Count how many branches (keys) exist under this type
+      return Object.keys(result.data[typeName]).length;
+    }
+    return 0;
+  } catch (error) {
+    console.error('Error fetching branch count:', error);
+    return 0;
+  }
+};
 const handleSubmit = async (e) => {
   e.preventDefault();
+
+  // Get parent ID from localStorage
+  const getUserParentId = () => {
+    const userInfo = localStorage.getItem('user');
+    console.log('Raw user info from localStorage:', userInfo);
+    
+    if (userInfo) {
+      try {
+        const parsed = JSON.parse(userInfo);
+        console.log('Parsed user info:', parsed);
+        console.log('User ID found:', parsed.id);
+        
+        if (!parsed.id) {
+          console.error('User ID is missing from localStorage!');
+        }
+        
+        return parsed.id || null;
+      } catch (error) {
+        console.error('Error parsing user info for parent ID:', error);
+      }
+    } else {
+      console.error('No user info found in localStorage!');
+    }
+    return null;
+  };
 
   const formErrors = validateForm();
   if (Object.keys(formErrors).length > 0) {
@@ -341,146 +712,175 @@ const handleSubmit = async (e) => {
 
   try {
     const token = localStorage.getItem('authToken');
-
-    // Set the role based on current user's role
     const targetRole = getTargetRole();
 
-    // Get parent ID from localStorage when needed
-    const getUserParentId = () => {
-      if (currentUserRole === 'rcs-admin') {
-        return null; // Admin creates departments, no parent needed
-      }
-      
-      const userInfo = localStorage.getItem('user');
-      if (userInfo) {
+    console.log('Current user role:', currentUserRole);
+    console.log('Parent ID:', getUserParentId());
+
+    if (currentUserRole === 'department') {
+      console.log('Processing department submission...');
+      let successCount = 0;
+      let errors = [];
+
+      // Process each division group (branch type) separately
+      for (const group of divisionGroups) {
         try {
-          const parsed = JSON.parse(userInfo);
-          return parsed.id || null; // Return the current user's ID as parent ID
+          console.log('Creating branch type:', group.name);
+          
+          // First create the branch type (division)
+          const branchTypeData = {
+            p_id: getUserParentId(),
+            name: group.name,
+            username: `${group.name.toLowerCase().replace(/\s+/g, '')}@admin`,
+            role: targetRole, // 'division'
+
+          };
+
+          const typeResponse = await fetch(`${API_BASE_URL}/user`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(branchTypeData)
+          });
+
+          const typeResult = await typeResponse.json();
+          console.log('Branch type creation response:', typeResult);
+
+          if (typeResponse.ok && typeResult.error === false) {
+            successCount++;
+            const createdTypeId = typeResult.data?.id;
+            console.log('Branch type created successfully, ID:', createdTypeId);
+            
+            // Now create each branch under this type
+            if (group.details && group.details.length > 0) {
+              for (const branch of group.details) {
+                try {
+                  console.log('Creating branch:', branch.name, 'under type:', group.name);
+                  
+                  const branchData = {
+                    p_id: createdTypeId, // Use the created division ID as parent
+                    name: branch.name,
+                    username: `${branch.suffix}@${group.name.toLowerCase().replace(/\s+/g, '')}`,
+                    role: 'accounts',
+                    mobile: branch.contact || '0000000000',
+                    address: branch.district || ''
+                  };
+
+                  const branchResponse = await fetch(`${API_BASE_URL}/user`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(branchData)
+                  });
+
+                  const branchResult = await branchResponse.json();
+                  console.log('Branch creation response:', branchResult);
+
+                  if (branchResponse.ok && branchResult.error === false) {
+                    successCount++;
+                    console.log('Branch created successfully');
+                  } else {
+                    errors.push(`Failed to create branch ${branch.name}: ${parseApiError(branchResult)}`);
+                  }
+                } catch (error) {
+                  errors.push(`Network error creating branch ${branch.name}: ${error.message}`);
+                }
+              }
+            }
+          } else {
+            errors.push(`Failed to create branch type ${group.name}: ${parseApiError(typeResult)}`);
+          }
         } catch (error) {
-          console.error('Error parsing user info for parent ID:', error);
+          errors.push(`Network error creating branch type ${group.name}: ${error.message}`);
         }
       }
-      return null;
-    };
-if (currentUserRole === 'department') {
-  // Collect all division data (current + saved groups)
-  let allDivisionData = [];
-  
-  // Add current form data if exists
-  if (formData.name && formData.count && divisionRows.length > 0) {
-    allDivisionData = [...divisionRows];
-  }
-  
-  // Add all saved division groups
-  divisionGroups.forEach(group => {
-    allDivisionData = [...allDivisionData, ...group.rows];
-  });
-  
-  const promises = allDivisionData.map(row => {
-    const submitData = {
-      p_id: getUserParentId(),
-      name: row.name,
-      address: row.address,
-      jailerInfo: row.jailerInfo,
-      role: targetRole
-    };
 
-    return fetch(`${API_BASE_URL}/user`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(submitData)
-    });
-  });
+      // Handle results
+      if (successCount > 0) {
+        setSubmitSuccess(true);
+        
+        // Reset form
+        setFormData({
+          p_id: null,
+          name: '',
+          username: '',
+          password: '',
+          role: '',
+          mobile: '',
+          count: '',
+        });
+        setDivisionRows([]);
+        setDivisionGroups([]);
 
-  const responses = await Promise.all(promises);
-  const results = await Promise.all(responses.map(res => res.json()));
-  
-  // Check if all requests were successful
-  const allSuccessful = results.every(result => result.error === false);
-  
-  if (allSuccessful) {
-    setSubmitSuccess(true);
-    // Reset form
-    setFormData({
-      p_id: null,
-      name: '',
-      username: '',
-      password: '',
-      role: '',
-      mobile: '',
-      count: '',
-    });
-    setDivisionRows([]);
-    setDivisionGroups([]);
-    
-    // Refresh users list
-    await fetchUsers();
+        // Refresh users list
+        await fetchUsers();
 
-    // Hide success message after 3 seconds
-    setTimeout(() => {
-      setSubmitSuccess(false);
-    }, 3000);
-  } else {
-    // Handle errors from failed requests
-    const firstError = results.find(result => result.error !== false);
-    const errorMessage = parseApiError(firstError);
-    setErrors({ general: errorMessage });
-  }
-} else {
-  // Original logic for other roles (rcs-admin, division, etc.)
-  const submitData = {
-    ...formData,
-    username: `${formData.username}@${formData.name.toLowerCase().replace(/\s+/g, '')}`,
-    role: targetRole,
-    p_id: getUserParentId()
-  };
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          setSubmitSuccess(false);
+        }, 3000);
+      }
 
-  console.log('Creating entity with data:', submitData);
-  console.log('Current user role:', currentUserRole);
-  console.log('Parent ID being sent:', submitData.p_id);
+      if (errors.length > 0) {
+        setErrors({ general: `Created ${successCount} items. Errors: ${errors.join(', ')}` });
+      } else if (successCount === 0) {
+        setErrors({ general: 'No branch types found to create.' });
+      }
+    } else {
+      // Original logic for other roles (rcs-admin, division, etc.)
+      const submitData = {
+        ...formData,
+        username: `${formData.username}@${formData.name.toLowerCase().replace(/\s+/g, '')}`,
+        role: targetRole,
+        p_id: getUserParentId()
+      };
 
-  const response = await fetch(`${API_BASE_URL}/user`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(submitData)
-  });
+      console.log('Creating entity with data:', submitData);
+      console.log('Current user role:', currentUserRole);
+      console.log('Parent ID being sent:', submitData.p_id);
 
-  const result = await response.json();
+      const response = await fetch(`${API_BASE_URL}/user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(submitData)
+      });
 
-  if (response.ok && result.error === false) {
-    setSubmitSuccess(true);
+      const result = await response.json();
 
-    // Reset form
-    setFormData({
-      p_id: null,
-      name: '',
-      username: '',
-      password: '',
-      role: '',
-      mobile: '',
-      count: '',
-    });
+      if (response.ok && result.error === false) {
+        setSubmitSuccess(true);
 
-    // Refresh users list
-    await fetchUsers();
+        // Reset form
+        setFormData({
+          p_id: null,
+          name: '',
+          username: '',
+          password: '',
+          role: '',
+          mobile: '',
+          count: '',
+        });
 
-    // Hide success message after 3 seconds
-    setTimeout(() => {
-      setSubmitSuccess(false);
-    }, 3000);
-  } else {
-    // Enhanced error handling
-    const errorMessage = parseApiError(result);
-    setErrors({ general: errorMessage });
-  }
-  
-}
+        // Refresh users list
+        await fetchUsers();
+
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          setSubmitSuccess(false);
+        }, 3000);
+      } else {
+        // Enhanced error handling
+        const errorMessage = parseApiError(result);
+        setErrors({ general: errorMessage });
+      }
+    }
   } catch (error) {
     console.error('Network error:', error);
     setErrors({ general: 'Network error. Please check your connection and try again.' });
@@ -488,7 +888,6 @@ if (currentUserRole === 'department') {
     setIsSubmitting(false);
   }
 };
-
   // Handle create button click
   const handleCreateClick = () => {
     setShowForm(true);
@@ -509,95 +908,154 @@ if (currentUserRole === 'department') {
     setDivisionRows([]);
     setErrors({});
   };
-
-  // Handle user form submission for add user to department modal
-const handleUserFormSubmit = async (e) => {
-  e.preventDefault();
-  const errors = {};
-  if (!userForm.username.trim()) errors.username = 'Username is required';
-  if (!userForm.password.trim()) errors.password = 'Password is required';
-  if (!/^\d{10}$/.test(userForm.mobile)) errors.mobile = 'Valid 10-digit mobile number required';
-  
-  if (Object.keys(errors).length > 0) {
-    setUserFormErrors(errors);
-    return;
-  }
-
+const handleSaveBranchUsers = async () => {
   try {
     const token = localStorage.getItem('authToken');
+    const userInfo = JSON.parse(localStorage.getItem('user'));
     
-    // Determine the role for the new user being added
-    let newUserRole = 'user';
-    if (currentUserRole === 'department') {
-      newUserRole = 'division';
-    } else if (currentUserRole === 'division') {
-      newUserRole = 'user';
+    // Get the current branch users for the selected branch type
+    const currentUsers = branchUsers[selectedBranchForUser] || [];
+    
+    if (currentUsers.length === 0) {
+      setErrors({ general: 'No users to save' });
+      return;
     }
 
-    // Get parent ID for the modal form submission
-    const getModalUserParentId = () => {
-      const userInfo = localStorage.getItem('user');
-      if (userInfo) {
-        try {
-          const parsed = JSON.parse(userInfo);
-          return parsed.id || null; // Current user's ID becomes parent ID
-        } catch (error) {
-          console.error('Error parsing user info for parent ID:', error);
-        }
-      }
-      return null;
-    };
+    // Prepare all users data for single API call
+    const usersData = currentUsers.map(user => ({
+      p_id: userInfo.id, // Current user ID as parent
+      name: user.name,
+      username: `${user.name}@${selectedBranchForUser.toLowerCase().replace(/\s+/g, '')}`,
+      role: 'Department', // or whatever role is appropriate
+      branch_type: selectedBranchForUser,
+      branch: user.branch || selectedBranchForUser
+    }));
 
-    const submitData = {
-      p_id: getModalUserParentId(), // Set parent ID
-      name: selectedDepartmentName,
-      username: userForm.username,
-      password: userForm.password,
-      role: newUserRole,
-      mobile: userForm.mobile,
-    };
-
-    // Debug logs
-    console.log('Creating user/division with data:', submitData);
-    console.log('Current user role:', currentUserRole);
-    console.log('Parent ID being sent:', submitData.p_id);
-
+    // Single API call with all users
     const response = await fetch(`${API_BASE_URL}/user`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(submitData)
+      body: JSON.stringify({ users: usersData })
     });
 
     const result = await response.json();
 
     if (response.ok && result.error === false) {
-      // Success - refresh users and close modal
+      setSubmitSuccess(true);
+      
+      // Refresh the data
       await fetchUsers();
-      setShowUserFormModal(false);
-      setUserForm({ username: '', password: '', mobile: '' });
-      setUserFormErrors({});
+      await fetchBranchDetails();
+      
+      // Close the form
+      setIsAddingBranchUsers(false);
+      
+      console.log(`${usersData.length} users created successfully`);
       
       // Show success message
-      setSubmitSuccess(true);
       setTimeout(() => {
         setSubmitSuccess(false);
       }, 3000);
     } else {
-      const errorMessage = parseApiError(result);
-      setUserFormErrors({ general: errorMessage });
+      setErrors({ general: `Failed to create users: ${parseApiError(result)}` });
     }
+
   } catch (error) {
-    console.error('Network error:', error);
-    setUserFormErrors({ general: 'Network error. Please check your connection and try again.' });
+    console.error('Error saving branch users:', error);
+    setErrors({ general: 'Network error while saving users. Please try again.' });
   }
 };
+  // Handle user form submission for add user to department modal
+  const handleUserFormSubmit = async (e) => {
+    e.preventDefault();
+    const errors = {};
+    if (!userForm.username.trim()) errors.username = 'Username is required';
+    if (!userForm.password.trim()) errors.password = 'Password is required';
+    if (!/^\d{10}$/.test(userForm.mobile)) errors.mobile = 'Valid 10-digit mobile number required';
+
+    if (Object.keys(errors).length > 0) {
+      setUserFormErrors(errors);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+
+      // Determine the role for the new user being added
+      let newUserRole = 'user';
+      if (currentUserRole === 'department') {
+        newUserRole = 'division';
+      } else if (currentUserRole === 'division') {
+        newUserRole = 'user';
+      }
+
+      // Get parent ID for the modal form submission
+      const getModalUserParentId = () => {
+        const userInfo = localStorage.getItem('user');
+        if (userInfo) {
+          try {
+            const parsed = JSON.parse(userInfo);
+            return parsed.id || null; // Current user's ID becomes parent ID
+          } catch (error) {
+            console.error('Error parsing user info for parent ID:', error);
+          }
+        }
+        return null;
+      };
+
+      const submitData = {
+        p_id: getModalUserParentId(), // Set parent ID
+        name: selectedDepartmentName,
+        username: userForm.username,
+        password: userForm.password,
+        role: newUserRole,
+        mobile: userForm.mobile,
+      };
+
+      // Debug logs
+      console.log('Creating user/division with data:', submitData);
+      console.log('Current user role:', currentUserRole);
+      console.log('Parent ID being sent:', submitData.p_id);
+
+      const response = await fetch(`${API_BASE_URL}/user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(submitData)
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.error === false) {
+        // Success - refresh users and close modal
+        await fetchUsers();
+        setShowUserFormModal(false);
+        setUserForm({ username: '', password: '', mobile: '' });
+        setUserFormErrors({});
+
+        // Show success message
+        setSubmitSuccess(true);
+        setTimeout(() => {
+          setSubmitSuccess(false);
+        }, 3000);
+      } else {
+        const errorMessage = parseApiError(result);
+        setUserFormErrors({ general: errorMessage });
+      }
+    } catch (error) {
+      console.error('Network error:', error);
+      setUserFormErrors({ general: 'Network error. Please check your connection and try again.' });
+    }
+  };
 
   return (
-    <div className="bg-gray-50 min-h-screen py-6 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+<div className="bg-gray-50 min-h-screen py-2 sm:py-4 md:py-6 px-2 sm:px-4 lg:px-8">
+  <div className="max-w-full sm:max-w-7xl mx-auto">
 
         {/* Header */}
         <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -615,733 +1073,1021 @@ const handleUserFormSubmit = async (e) => {
           </div>
         )}
 
-        {/* Global Error Message for Fetch Issues */}
-        {errors.fetch && (
-          <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-            <strong className="font-bold">Error!</strong>
-            <span className="block sm:inline"> {errors.fetch}</span>
-            <button
-              onClick={() => setErrors({ ...errors, fetch: '' })}
-              className="absolute top-0 bottom-0 right-0 px-4 py-3"
-            >
-              <svg className="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                <title>Close</title>
-                <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z" />
-              </svg>
-            </button>
-          </div>
-        )}
-
-<div className={`grid grid-cols-1 transition-all duration-500 ease-in-out ${showForm ? 'xl:grid-cols-4 lg:grid-cols-1' : 'lg:grid-cols-1'} gap-4 xl:gap-8`}>
-
-          {/* Left Side - Departments List */}
-<div className={`transition-all duration-500 ease-in-out ${showForm ? 'xl:col-span-1 lg:col-span-1' : 'lg:col-span-1'}`}>
-            <div className="mb-6 flex justify-between items-center">
-              <h2 className="text-2xl font-semibold text-sky-800">{labels.entityNamePlural}</h2>
-              {!showForm && (
-                <button
-                  onClick={handleCreateClick}
-                  className="px-4 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-xl font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 flex items-center space-x-2 text-sm"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  <span>{labels.createButtonText}</span>
-                </button>
-              )}
+  
+        {currentUserRole === 'department' ? (
+          <div className="bg-white shadow-xl rounded-2xl overflow-hidden">
+            <div className="px-4 py-3 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100">
+              <h2 className="text-lg font-semibold text-sky-800">Branch Management</h2>
             </div>
 
+            <div className="p-4">
+       
+
+              {/* Two Column Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                {/* Left: Branches Types Form */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+<h3 className="text-sm font-semibold text-gray-800">Created Types ({divisionGroups.length})</h3>
+           
+                  </div>
+
+                  <div className="space-y-2">
+{divisionGroups.length > 0 ? (
+  divisionGroups.map((division) => (
+<div key={division.id} className="bg-gradient-to-r border border-black-200 rounded-lg p-2 mb-2">
+  <div className="flex items-center justify-between">
+    <div>
+      <h4 className="text-sm font-medium">{division.name}</h4>
+    </div>
+
+                            <div className="flex items-center space-x-2">
+<button
+  onClick={async () => {
+    if (expandedBranchId === division.id) {
+      setExpandedBranchId(null);
+    } else {
+      setExpandedBranchId(division.id);
+    }
+  }}
+  className="text-xs font-semibold text-red-600 underline hover:text-red-800 transition"
+>
+  Branches ({division.details ? division.details.length : 0})
+</button>
+                              {/* +Branch button */}
+                         <button
+onClick={() => {
+  // Generate initial suffix when branch type is selected
+  const initialSuffix = generateUsernameSuffix(division.name, '');
+  
+  setShowAddUserForm(true);
+  setSelectedBranchForUser(division.name);
+  setAddUserForm({ 
+    name: '', 
+    district: '', 
+    contact: '', 
+    address: '', 
+    suffix: initialSuffix 
+  });
+}}
+                                className="text-xs text-sky-700 hover:text-blue-800 px-2 py-1 border border-sky-200 rounded-md transition-colors"
+                              >
+                                + Branch
+                              </button>
+                              {/* +Users button */}
+                              <button
+onClick={() => {
+  setSelectedBranchForUser(division.name);
+  setSelectedUser(null);
+  setShowAddUserForm(false);
+  setIsAddingBranchUsers(true);
+
+  // Initialize users for this specific branch if not exists
+// In the +Users button onClick handler, update this part:
+if (!branchUsers[division.name]) {
+  setBranchUsers(prev => ({
+    ...prev,
+    [division.name]: [
+      { name: 'Indent_raiser', branch: division.name, mobile: '', password: '' },
+      { name: 'Supply_confirmationer', branch: division.name, mobile: '', password: '' },
+      { name: 'Payment_approver', branch: division.name, mobile: '', password: '' },
+    ]
+  }));
+}
+}}
+                                className="text-xs text-indigo-700 hover:text-indigo-800 px-2 py-1 border border-indigo-200 rounded-md transition-colors"
+                              >
++ Users ({division.details?.reduce((total, branch) => total + (branch.users?.length || 0), 0) || 0})
+                              </button>
+
+
+
+                            </div>
+                          </div>
+
+{expandedBranchId === division.id && (
+  <div className="mt-3 shadow-sm p-3 text-sm relative space-y-2">
+    {division.details && division.details.length > 0 ? (
+      division.details.map((branchItem, idx) => (
+<div key={branchItem.id || `${division.name}-${idx}`}>
+          <div className="flex justify-between items-center p-3 rounded-md border bg-gray-50 hover:shadow-sm transition">
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-gray-800">
+                {branchItem.name} {/* This shows "Chennai" */}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setSelectedUser(branchItem);
+                  setIsEditingUser(false);
+                  setSelectedBranchForUser(division.name);
+                  setOpenBranchForm(branchItem.id);
+                }}
+                className="px-3 py-1.5 text-xs font-semibold text-sky-700 border border-sky-500 rounded hover:bg-sky-50 transition"
+              >
+                View
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedUser(branchItem);
+                  setIsEditingUser(true);
+                  setSelectedBranchForUser(division.name);
+                  setOpenBranchForm(branchItem.id);
+                }}
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-green-600 rounded hover:bg-green-700 transition"
+              >
+                Edit
+              </button>
+            </div>
+          </div>
+          
+          {/* Form appears below this branch when clicked */}
+          {openBranchForm === branchItem.id && selectedUser && (
+   <div className="mt-3 p-4 border rounded shadow bg-white space-y-4 relative">
+              <button
+                className="absolute top-2 right-2 text-gray-500 hover:text-red-600"
+                onClick={() => {
+                  setSelectedUser(null);
+                  setOpenBranchForm(null);
+                }}
+                title="Close"
+              >
+                ✖️
+              </button>
+
+              <h3 className="text-sm font-bold text-gray-800">
+                {isEditingUser ? 'Edit Branch' : 'Branch Details'}
+              </h3>
+
+              <div>
+                <label className="text-sm text-gray-700">Name:</label>
+                <input
+                  type="text"
+                  value={selectedUser.name}
+                  readOnly={!isEditingUser}
+                  onChange={(e) =>
+                    setSelectedUser({ ...selectedUser, name: e.target.value })
+                  }
+                  className={`w-full px-3 py-2 border rounded ${isEditingUser ? 'border-gray-300' : 'bg-gray-100'}`}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-gray-700">District:</label>
+                <input
+                  type="text"
+                  value={selectedUser.district}
+                  readOnly={!isEditingUser}
+                  onChange={(e) =>
+                    setSelectedUser({ ...selectedUser, district: e.target.value })
+                  }
+                  className={`w-full px-3 py-2 border rounded ${isEditingUser ? 'border-gray-300' : 'bg-gray-100'}`}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-gray-700">Contact:</label>
+                <input
+                  type="text"
+                  value={selectedUser.contact}
+                  readOnly={!isEditingUser}
+                  onChange={(e) =>
+                    setSelectedUser({ ...selectedUser, contact: e.target.value })
+                  }
+                  className={`w-full px-3 py-2 border rounded ${isEditingUser ? 'border-gray-300' : 'bg-gray-100'}`}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-gray-700">Suffix:</label>
+                <input
+                  type="text"
+                  value={selectedUser.suffix}
+                  readOnly={!isEditingUser}
+                  onChange={(e) =>
+                    setSelectedUser({ ...selectedUser, suffix: e.target.value })
+                  }
+                  className={`w-full px-3 py-2 border rounded ${isEditingUser ? 'border-gray-300' : 'bg-gray-100'}`}
+                />
+              </div>
+
+              {isEditingUser && (
+                <div className="text-right">
+                  <button
+                    onClick={async () => {
+                      try {
+                        const token = localStorage.getItem('authToken');
+                        const userInfo = JSON.parse(localStorage.getItem('user'));
+                        
+                        const branchData = {
+                          p_id: userInfo.id,
+                          name: selectedUser.name,
+                          branch: selectedUser.name,
+                          contact: selectedUser.contact || '0000000000',
+                          location: selectedUser.district || '',
+                          address: selectedUser.address || '',
+                          suffix: selectedUser.suffix,
+                          branch_type: selectedBranchForUser
+                        };
+
+                        const branchResponse = await fetch(`${API_BASE_URL}/user/division`, {
+                          method: 'POST',
+                          headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify(branchData)
+                        });
+
+                        const branchResult = await branchResponse.json();
+                        
+                        if (branchResponse.ok && branchResult.error === false) {
+                          await fetchUsers();
+                          await fetchBranchDetails();
+                          setSelectedUser(null);
+                          setOpenBranchForm(null);
+                          setSubmitSuccess(true);
+                          setTimeout(() => {
+                            setSubmitSuccess(false);
+                          }, 3000);
+                        } else {
+                          setErrors({ general: `Failed to update branch: ${branchResult.message}` });
+                        }
+                      } catch (error) {
+                        setErrors({ general: 'Network error updating branch' });
+                      }
+                    }}
+                    className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700"
+                  >
+                    Save
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ))
+    ) : (
+      <div className="text-center text-gray-500 text-sm py-4">
+        No branches found for this type
+      </div>
+    )}
+  </div>
+)}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center text-gray-500 text-sm py-4">
+                        No branches created yet
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {isAddingBranchUsers ? (
+                  <div className="bg-white shadow-lg rounded-xl p-4 border border-gray-200 space-y-4 max-w-lg">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-800">Branch Users</h3>
+                      <button
+                        onClick={() => setIsAddingBranchUsers(false)}
+                        className="text-sm text-gray-500 hover:text-red-600"
+                        title="Close"
+                      >
+                        ✖️
+                      </button>
+                    </div>
+
+                    {/* Initial Editable Users */}
+           {/* Initial Editable Users */}
+{(branchUsers[selectedBranchForUser] || []).map((user, index) => (
+                      <div key={index} className="flex items-center gap-2 mb-1">
+                        <input
+                          type="text"
+                          value={user.name}
+                    onChange={(e) => {
+  setBranchUsers(prev => ({
+    ...prev,
+    [selectedBranchForUser]: prev[selectedBranchForUser].map((user, i) => 
+      i === index ? { ...user, name: e.target.value } : user
+    )
+  }));
+}}
+                          className="w-48 px-3 py-2 border border-gray-300 rounded text-sm"
+                        />
+                        <span className="text-sm text-gray-700 font-medium">@&lt;branchname&gt;</span>
+
+                        {index >= 3 && (
+                          <button
+                     onClick={() => {
+  setBranchUsers(prev => ({
+    ...prev,
+    [selectedBranchForUser]: prev[selectedBranchForUser].filter((_, i) => i !== index)
+  }));
+}}
+                            className="px-2 py-1 text-xs text-white bg-red-600 rounded hover:bg-red-700 transition"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    ))}
+
+
+{/* Add New User */}
+{showNewUserField ? (
+  <div className="flex items-center gap-2 mt-2">
+    <input
+      type="text"
+      value={newUserName}
+      onChange={(e) => setNewUserName(e.target.value)}
+      className="w-48 px-3 py-2 border border-gray-800 rounded text-sm"
+      placeholder="Enter name"
+    />
+    <span className="text-sm font-medium text-gray-700">@&lt;branchname&gt;</span>
+    <button
+      onClick={() => {
+        if (newUserName.trim()) {
+          const formattedName = newUserName.trim().toLowerCase().replace(/\s+/g, '_');
+          setBranchUsers(prev => ({
+            ...prev,
+            [selectedBranchForUser]: [...(prev[selectedBranchForUser] || []), { name: formattedName, branch: selectedBranchForUser }]
+          }));
+          setNewUserName('');
+          setShowNewUserField(false); // hide field again after adding
+        }
+      }}
+      className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+    >
+      Save
+    </button>
+  </div>
+) : (
+  <button
+    onClick={() => setShowNewUserField(true)}
+    className="px-3 py-1 bg-sky-600 text-white rounded text-xs hover:bg-sky-700 mt-2"
+  >
+    + Add User
+  </button>
+)}
+
+
+
+
+{/* Save Button */}
+<div className="text-right pt-3">
+  <button
+    onClick={handleSaveBranchUsers}
+    className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700"
+  >
+    Save Users
+  </button>
+</div>
+                  </div>
+
+                ) : !showAddUserForm ? (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-gray-800">Create Type</h3>
+                    <div className="flex gap-2 items-start">
+                      <input
+                        type="text"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        className="w-48 px-3 py-2 border border-gray-200 rounded-lg focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none text-sm"
+                        placeholder="Create Type"
+                      />
+<button
+  type="button"
+onClick={async () => {
+  if (formData.name.trim()) {
+    // Generate initial suffix for the new type
+    const initialSuffix = generateUsernameSuffix(formData.name, '');
+    
+    // Auto-initiate Add Branch form for this new type
+    setShowAddUserForm(true);
+    setSelectedBranchForUser(formData.name);
+    setAddUserForm({ 
+      name: '', 
+      district: '', 
+      contact: '', 
+      address: '', 
+      suffix: initialSuffix 
+    });
+    
+    setFormData({ ...formData, name: '' });
+  }
+}}
+  disabled={!formData.name.trim()}
+  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+>
+  Add
+</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white shadow-lg rounded-xl p-4 border border-gray-200 space-y-4">
+              <h3 className="text-sm font-semibold text-gray-800">Create Branch for {selectedBranchForUser}</h3>
+                    <div>
+                      <label className="text-sm text-gray-700"> Full Name:</label>
+                      <input
+                        type="text"
+                        value={addUserForm.name}
+                        onChange={(e) => {
+                          const fullName = e.target.value;
+                          const firstWord = fullName.trim().split(' ')[0].toLowerCase();
+                          setAddUserForm({
+                            ...addUserForm,
+                            name: fullName,
+                            suffix: firstWord
+                          });
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded"
+                      />
+                    </div>
+           <div>
+  <label className="text-sm text-gray-700">District:</label>
+  <input
+    type="text"
+    value={addUserForm.district}
+    onChange={(e) => {
+      const district = e.target.value;
+      const generatedSuffix = generateUsernameSuffix(selectedBranchForUser, district);
+      setAddUserForm({ 
+        ...addUserForm, 
+        district: district,
+        suffix: generatedSuffix
+      });
+    }}
+    className="w-full px-3 py-2 border border-gray-300 rounded"
+  />
+</div>
+              <div>
+  <label className="text-sm text-gray-700">Admin Contact number:</label>
+  <input
+    type="text"
+    value={addUserForm.contact}
+    onChange={(e) => setAddUserForm({ ...addUserForm, contact: e.target.value })}
+    className="w-full px-3 py-2 border border-gray-300 rounded"
+  />
+</div>
+<div>
+  <label className="text-sm text-gray-700"> Full Address:</label>
+  <input
+    type="text"
+    value={addUserForm.address}
+    onChange={(e) => setAddUserForm({ ...addUserForm, address: e.target.value })}
+    className="w-full px-3 py-2 border border-gray-300 rounded"
+    placeholder="Enter branch address"
+  />
+</div>
+<div>
+  <label className="text-sm text-gray-700 block mb-1">Username Suffix:</label>
+  <div className="flex items-center space-x-2">
+    <span className="text-sm font-medium text-gray-700">&lt;username&gt;@</span>
+    <input
+      type="text"
+      value={addUserForm.suffix}
+      onChange={(e) => setAddUserForm({ ...addUserForm, suffix: e.target.value })}
+      className="w-48 px-3 py-2 border border-gray-300 rounded text-sm"
+      placeholder="Auto-generated (editable)"
+    />
+  </div>
+</div>
+<div className="text-right">
+  <button
+onClick={async () => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const userInfo = JSON.parse(localStorage.getItem('user'));
+    
+    // Create the branch directly (no type creation call)
+const branchData = {
+  p_id: userInfo.id, // Use current user ID as parent
+  name: addUserForm.name,
+  branch: addUserForm.name,
+  contact: addUserForm.contact || '0000000000',
+  location: addUserForm.district || '',
+  address: addUserForm.address || '',
+  suffix: addUserForm.suffix, // Include suffix in payload
+  branch_type: selectedBranchForUser // Include the type information
+};
+
+    const branchResponse = await fetch(`${API_BASE_URL}/user/division`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(branchData)
+    });
+
+    const branchResult = await branchResponse.json();
+    
+if (branchResponse.ok && branchResult.error === false) {
+  // Refresh data from API
+  await fetchUsers();
+  await fetchBranchDetails();
+  
+  // Clear form fields first
+setAddUserForm({ name: '', district: '', contact: '', address: '', suffix: '' });
+  // Then close the form
+  setShowAddUserForm(false);
+  
+  // Show success message
+  setSubmitSuccess(true);
+  setTimeout(() => {
+    setSubmitSuccess(false);
+  }, 3000);
+}
+    else {
+      setErrors({ general: `Failed to create branch: ${branchResult.message}` });
+    }
+  } catch (error) {
+    setErrors({ general: 'Network error creating branch' });
+  }
+}}
+    className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700"
+  >
+    Save
+  </button>
+</div>
+                  </div>
+                )}
+</div>
+
+            </div>
+
+
+          </div>
+        ) : (
+          <div className={`grid grid-cols-1 transition-all duration-500 ease-in-out ${showForm ? 'xl:grid-cols-4 lg:grid-cols-1' : 'lg:grid-cols-1'} gap-4 xl:gap-8`}>
+            <div className={`transition-all duration-500 ease-in-out ${showForm ? 'xl:col-span-1 lg:col-span-1' : 'lg:col-span-1'}`}>
+              <div className="mb-6 flex justify-between items-center">
+                <h2 className="text-2xl font-semibold text-sky-800">{labels.entityNamePlural}</h2>
+                {!showForm && (
+                  <button
+                    onClick={handleCreateClick}
+                    className="px-4 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-xl font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 flex items-center space-x-2 text-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>{labels.createButtonText}</span>
+                  </button>
+                )}
+              </div>
 {loading ? (
-  <div className="py-16 text-center">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600 mx-auto"></div>
-    <p className="mt-4 text-gray-600">Loading {labels.entityNamePlural.toLowerCase()}...</p>
+  <div className="py-8 text-center">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600 mx-auto"></div>
+    <p className="mt-2 text-gray-600 text-sm">Loading...</p>
   </div>
 ) : getDepartments().length > 0 ? (
-  <div className="space-y-4">
-{getDepartments().map((department) => (
-  <div
-    key={department.id}
-    className="bg-white hover:bg-sky-50 border border-gray-200 hover:border-sky-300 rounded-lg xl:rounded-xl p-3 xl:p-6 transition-all duration-300 hover:shadow-lg"
-  >
-    <div className="flex items-center justify-between w-full">
-      {/* Left: Icon + Department Name + Count */}
-      <div className="flex items-center space-x-3 flex-1 min-w-0">
-        <div className={`flex-shrink-0 ${showForm ? 'h-8 w-8 xl:h-10 xl:w-10' : 'h-10 w-10 sm:h-12 sm:w-12'} bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center`}>
-          <span className={`text-white font-semibold ${showForm ? 'text-xs xl:text-sm' : 'text-xs sm:text-sm'}`}>
-            {(() => {
-              const words = department.name?.trim().split(' ') || [];
-
-              if (words.length === 1) {
-                const name = words[0];
-                return (name.charAt(0) + name.charAt(name.length - 1)).toUpperCase();
-              } else if (words.length >= 2) {
-                return words
-                  .slice(0, 2)
-                  .map(word => word.charAt(0).toUpperCase())
-                  .join('');
-              } else {
-                return 'DE';
-              }
-            })()}
-          </span>
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <h3 className={`${showForm ? 'text-sm xl:text-lg' : 'text-lg sm:text-xl'} font-semibold text-gray-900 break-words leading-tight truncate`}>
-            {department.name}
-          </h3>
-          <button
-            onClick={() => handleDepartmentClick(department)}
-            className={`${showForm ? 'text-xs xl:text-sm' : 'text-sm'} text-gray-600 hover:underline focus:outline-none block mt-1`}
-          >
-            {department.userCount} {currentUserRole === 'rcs-admin' ? 'Divisions' : currentUserRole === 'department' ? 'Users' : 'Users'}
-          </button>
+<div className="bg-white rounded-lg shadow-sm overflow-hidden">
+  <div className="overflow-x-auto">
+    <table className="w-full min-w-[600px]">
+<thead className="bg-gray-50 border-b">
+  <tr>
+    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+      Department
+    </th>
+    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+      Department Details
+    </th>
+    <th className="px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+      Actions
+    </th>
+  </tr>
+</thead>
+      <tbody className="bg-white divide-y divide-gray-200">
+        {getDepartments().map((department) => {
+          const isExpanded = expandedDepartments.find(d => d.id === department.id);
+          
+          return (
+            <React.Fragment key={department.id}>
+              {/* Department Row */}
+          <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => handleDepartmentClick(department)}>
+  <td className="px-2 sm:px-4 py-2 sm:py-3">
+    <div className="flex items-center">
+      <div className="flex-shrink-0 h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center mr-2 sm:mr-3">
+        <span className="text-white font-semibold text-xs">
+          {(() => {
+            const words = department.name?.trim().split(' ') || [];
+            if (words.length === 1) {
+              const name = words[0];
+              return (name.charAt(0) + name.charAt(name.length - 1)).toUpperCase();
+            } else if (words.length >= 2) {
+              return words
+                .slice(0, 2)
+                .map(word => word.charAt(0).toUpperCase())
+                .join('');
+            } else {
+              return 'DE';
+            }
+          })()}
+        </span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">{department.name}</div>
+        {/* Show details on mobile below name */}
+        <div className="sm:hidden mt-1">
+          {currentUserRole === 'rcs-admin' ? (
+            <div className="flex flex-wrap gap-1">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                {department.typeCount} Types
+              </span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                {department.totalBranches} Branches
+              </span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                {department.totalUsers} Users
+              </span>
+            </div>
+          ) : (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+              {department.userCount} Users
+            </span>
+          )}
         </div>
       </div>
-
-      {/* Right: Add icon only */}
-      {(currentUserRole === 'department' || currentUserRole === 'division') && (
-        <div className="flex-shrink-0 ml-2">
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedDepartmentName(department.name);
-              setShowUserFormModal(true);
-              setUserForm({ username: '', password: '', mobile: '' });
-              setUserFormErrors({});
-            }}
-            className="text-sky-600 hover:text-blue-800 transition-colors"
-          >
-            <svg className={`${showForm ? 'w-4 h-4 xl:w-5 xl:h-5' : 'w-5 h-5 sm:w-6 sm:h-6'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-          </button>
+    </div>
+  </td>
+  <td className="px-2 sm:px-4 py-2 sm:py-3 hidden sm:table-cell">
+    {currentUserRole === 'rcs-admin' ? (
+      <div className="flex flex-wrap gap-1">
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          {department.typeCount} Types
+        </span>
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          {department.totalBranches} Branches
+        </span>
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+          {department.totalUsers} Users
+        </span>
+      </div>
+    ) : (
+      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+        {department.userCount} Users
+      </span>
+    )}
+  </td>
+<td className="px-2 sm:px-4 py-2 sm:py-3 text-sm">
+  <div className="flex items-center justify-center space-x-1 sm:space-x-2">
+    {/* Reset Password Button */}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        console.log('Reset passwords for department:', department.name);
+      }}
+      className="px-2 py-1 text-xs font-medium text-orange-600 border border-orange-200 rounded hover:bg-orange-50 transition-colors"
+      title="Reset All Passwords"
+    >
+      Reset Password
+    </button>
+    
+    {/* View Profile Button */}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        console.log('View profile for department:', department.name);
+      }}
+      className="px-2 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition-colors"
+      title="View Department Profile"
+    >
+      View Profile
+    </button>
+    
+    {/* Expand Arrow */}
+    <svg 
+      className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
+      fill="none" 
+      stroke="currentColor" 
+      viewBox="0 0 24 24"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+    </svg>
+    
+    {/* Add User Button (if applicable) */}
+    {(currentUserRole === 'department' || currentUserRole === 'division') && (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedDepartmentName(department.name);
+          setShowUserFormModal(true);
+          setUserForm({ username: '', password: '', mobile: '' });
+          setUserFormErrors({});
+        }}
+        className="px-2 py-1 text-xs font-medium text-sky-600 border border-sky-200 rounded hover:bg-sky-50 transition-colors"
+        title="Add User"
+      >
+        Add User
+      </button>
+    )}
+  </div>
+</td>
+</tr>
+              
+              {/* Expanded Divisions Row */}
+ {isExpanded && (
+  <tr>
+    <td colSpan="3" className="px-2 sm:px-4 py-2 bg-gray-50">
+                    <div className="space-y-2">
+                  {isExpanded.divisions?.map((division, index) => {
+  const typeKey = `${isExpanded.name}-${division.name}`;
+  const isTypeExpanded = expandedTypes.includes(typeKey);
+  
+  return (
+    <div key={division.id || index} className="border border-gray-200 rounded-lg">
+      {/* Type Header - Clickable */}
+{/* Type Header - Non-clickable */}
+<div 
+  className="flex items-center justify-between p-2 bg-white rounded-t-lg"
+>
+        <div className="flex items-center space-x-3">
+          <div className="w-6 h-6 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center">
+            <span className="text-white font-medium text-xs">
+              {currentUserRole === 'rcs-admin' 
+                ? (division.name ? division.name.charAt(0).toUpperCase() : 'T')
+                : (division.username ? division.username.charAt(0).toUpperCase() : division.name ? division.name.charAt(0).toUpperCase() : 'U')
+              }
+            </span>
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <div className="text-sm font-medium text-gray-900">{division.name || division.username}</div>
+              {currentUserRole === 'rcs-admin' && (
+                <div className="flex gap-1">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    {division.branchCount} Branches
+                  </span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                    {division.userCount} Users
+                  </span>
+                </div>
+              )}
+            </div>
+            {currentUserRole !== 'rcs-admin' && (
+              <div className="text-xs text-gray-500">{division.role}</div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          {division.mobile && (
+            <div className="text-right">
+              <div className="text-sm text-gray-600">{division.mobile}</div>
+            </div>
+          )}
+   
+        </div>
+      </div>
+      
+      {/* Users List - Expandable */}
+      {isTypeExpanded && currentUserRole === 'rcs-admin' && (
+        <div className="border-t border-gray-200 bg-gray-50 p-3">
+          <div className="space-y-2">
+            {/* Get users from the API data structure */}{(() => {
+  const departmentData = users[isExpanded.name] || {};
+  const typeData = departmentData[division.name] || {};
+  const allUsers = [];
+  
+  // Collect all users from all branches under this type
+  Object.keys(typeData).forEach(branchKey => {
+    const branchUsers = typeData[branchKey];
+    if (Array.isArray(branchUsers)) {
+      branchUsers.forEach(user => {
+        allUsers.push({
+          ...user,
+          branchName: branchKey || user.branch || user.location || 'Unknown Branch'
+        });
+      });
+    }
+  });
+  
+  return allUsers.length > 0 ? (allUsers.map((user, userIndex) => (
+  <div key={`${user.id}-${userIndex}`} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 bg-white rounded border border-gray-100 space-y-2 sm:space-y-0">
+    <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+      <div className="min-w-0 flex-1">
+        <div className="text-xs sm:text-sm font-medium text-gray-900">
+          <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 mr-1 sm:mr-2">
+            {user.branchName}
+          </span>
+          <span className="break-words">{user.name} | {user.username}</span>
+        </div>
+      </div>
+    </div>
+<div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+  <button className="px-2 sm:px-3 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition-colors">
+    View Profile
+  </button>
+</div>
+  </div>
+))
+  ) : (
+    <div className="text-center text-gray-500 text-sm py-2">
+      No users found in this type
+    </div>
+  );
+})()}
+          </div>
         </div>
       )}
     </div>
-  </div>
-))}
+  );
+})}
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </tbody>
+    </table>
+    </div>
   </div>
 ) : (
-  <div className="py-16 text-center">
-    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <div className="py-8 text-center">
+    <svg className="mx-auto h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
     </svg>
     <h3 className="mt-2 text-sm font-medium text-gray-900">No {labels.entityNamePlural.toLowerCase()} found</h3>
   </div>
 )}
-          </div>
-
-       <div className={`transition-all duration-500 ease-in-out transform ${showForm
-  ? 'xl:col-span-3 lg:col-span-1 translate-x-0 opacity-100 mt-8 xl:mt-0'
-  : 'xl:col-span-0 lg:col-span-0 translate-x-full opacity-0 overflow-hidden w-0'
-  } ${showForm ? 'block' : 'hidden xl:block'}`}>
-            <div className="bg-white shadow-xl rounded-2xl overflow-hidden h-fit">
-              <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
-                <h2 className="text-lg sm:text-xl font-semibold text-sky-800">{labels.formTitle}</h2>
-                <button
-                  onClick={handleCancelForm}
-                  className="text-gray-500 hover:text-gray-700 transition-colors p-1"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="p-6">
-                {errors.general && (
-                  <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0">
-                        <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium text-red-800">Error Creating {labels.entityName}</h3>
-                        <p className="mt-1 text-sm text-red-600">{errors.general}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-     
-{/* Department/Division Name and Count - Show at top only when no branches exist */}
-{currentUserRole === 'department' && divisionGroups.length === 0 ? (
-<div className="flex gap-4 items-end">
-    <div className="w-48">
-      <label htmlFor="new-branch-name" className="block text-sm font-semibold text-gray-700 mb-2">
-        {labels.nameLabel} *
-      </label>
-      <input
-        type="text"
-        id="new-branch-name"
-        name="name"
-        value={formData.name}
-        onChange={handleChange}
-        className={`w-full px-3 py-2 border-2 ${errors.name ? 'border-red-500' : 'border-gray-200'
-          } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all text-sm`}
-        placeholder={labels.namePlaceholder}
-      />
-      {errors.name && (
-        <p className="mt-2 text-sm text-red-600">{errors.name}</p>
-      )}
-    </div>
-    <div className="w-24">
-      <label htmlFor="new-branch-count" className="block text-sm font-semibold text-gray-700 mb-2">
-        Records *
-      </label>
-      <input
-        type="number"
-        id="new-branch-count"
-        name="count"
-        value={formData.count}
-        onChange={handleChange}
-        min="1"
-        className={`w-full px-3 py-2 border-2 ${errors.count ? 'border-red-500' : 'border-gray-200'
-          } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all text-sm`}
-        placeholder=""
-      />
-      {errors.count && (
-        <p className="mt-2 text-sm text-red-600">{errors.count}</p>
-      )}
-    </div>
-{/* Only show Add Branch button when no table is visible */}
-    {divisionRows.length === 0 && (
-      <div>
-        <button
-          type="button"
-          onClick={() => {
-            // Save current division data if it exists
-            if (formData.name && formData.count && divisionRows.length > 0) {
-              const newGroup = {
-                id: divisionGroups.length + 1,
-                name: formData.name,
-                count: formData.count,
-                rows: [...divisionRows]
-              };
-              setDivisionGroups([...divisionGroups, newGroup]);
-              
-              // Clear the division name and count fields
-              setFormData({
-                ...formData,
-                name: '',
-                count: ''
-              });
-              
-              // Clear the current table
-              setDivisionRows([]);
-            }
-          }}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center space-x-2 h-10"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          <span>Add Branch</span>
-        </button>
-      </div>
-    )}
-  </div>
-) : currentUserRole !== 'department' ? (
-  <div>
-    <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-      {labels.nameLabel} *
-    </label>
-    <input
-      type="text"
-      id="name"
-      name="name"
-      value={formData.name}
-      onChange={handleChange}
-      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.name ? 'border-red-500' : 'border-gray-200'
-        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-      placeholder={labels.namePlaceholder}
-    />
-    {errors.name && (
-      <p className="mt-2 text-sm text-red-600">{errors.name}</p>
-    )}
-  </div>
-) : null}
-
-
-
-
-
-{/* Display Added Division Groups */}
-{currentUserRole === 'department' && divisionGroups.length > 0 && (
-  <div className="space-y-6">
-    <h3 className="text-lg font-semibold text-gray-800">Added Branches</h3>
-    {divisionGroups.map((group, groupIndex) => (
-      <div key={group.id} className="space-y-3">
-        <div className="flex justify-between items-center">
-          {editingGroupId === group.id ? (
-            <input
-              type="text"
-              value={group.name}
-              onChange={(e) => handleDivisionGroupNameChange(groupIndex, e.target.value)}
-              className="font-medium text-gray-900 bg-white border border-gray-300 rounded px-3 py-1 focus:border-sky-500 outline-none flex-1 mr-3"
-              placeholder="Branch name"
-              autoFocus
-            />
-          ) : (
-            <h4 className="font-medium text-gray-900 flex-1">{group.name}</h4>
-          )}
-          
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={() => {
-                if (editingGroupId === group.id) {
-                  setEditingGroupId(null); // Stop editing
-                } else {
-                  setEditingGroupId(group.id); // Start editing
-                }
-              }}
-              className="text-blue-600 hover:text-blue-800 transition-colors"
-              title={editingGroupId === group.id ? "Save changes" : "Edit branch"}
-            >
-              {editingGroupId === group.id ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              )}
-            </button>
-            
-            <button
-              type="button"
-              onClick={() => {
-                setDivisionGroups(divisionGroups.filter((_, index) => index !== groupIndex));
-                setEditingGroupId(null); // Reset editing state
-              }}
-              className="text-red-600 hover:text-red-800 transition-colors"
-              title="Delete branch"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-        
-        <div className="overflow-hidden">
-          <table className="w-full border-collapse border border-gray-300 rounded-lg text-sm">
-            <thead>
-       <tr className="bg-gray-100">
-    <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">S.No</th>
- <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">Name</th>
-    <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">Address</th>
-<th className="px-3 py-2 text-left text-sm font-medium">Username</th>
-  </tr>
-            </thead>
-         <tbody>
-              {group.rows.map((row, rowIndex) => (
-                <tr key={row.id} className="hover:bg-gray-50">
-                  <td className="border-r border-t border-gray-300 px-2 py-1">{rowIndex + 1}</td>
-                 <td className="border-r border-t border-gray-300 px-1 py-1">
-  {editingGroupId === group.id ? (
-    <input
-      type="text"
-      value={row.name || ''}
-      onChange={(e) => handleDivisionGroupRowChange(groupIndex, rowIndex, 'name', e.target.value)}
-      className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:border-sky-500 outline-none"
-      placeholder="Enter name"
-    />
-  ) : (
-    <span className="px-2 py-1 text-sm">{row.name}</span>
-  )}
-</td>
-                  <td className="border-r border-t border-gray-300 px-1 py-1">
-                    {editingGroupId === group.id ? (
-                      <textarea
-                        value={row.address}
-                        onChange={(e) => handleDivisionGroupRowChange(groupIndex, rowIndex, 'address', e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:border-sky-500 outline-none"
-                        placeholder="Enter address"
-                        rows="2"
-                      />
-                    ) : (
-                      <span className="px-2 py-1 text-sm">{row.address}</span>
-                    )}
-                  </td>
-<td className="border-t border-gray-300 px-1 py-1">
-  <div className="px-2 py-1 bg-gray-100 rounded text-sm text-gray-600">
-    rolename@{row.name ? row.name.split(' ')[0].toLowerCase() : ''}
-  </div>
-</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ))}
-  </div>
-)}
-
-
-{/* Add New Branch Section - Only show after first branch is added */}
-{currentUserRole === 'department' && divisionGroups.length > 0 && (
-  <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-    <h3 className="text-lg font-semibold text-gray-800 mb-4">Add New Branch</h3>
-<div className="flex gap-4 items-end">
-      <div className="w-48">
-        <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">
-          {labels.nameLabel} *
-        </label>
-        <input
-          type="text"
-          id="name"
-          name="name"
-          value={formData.name}
-          onChange={handleChange}
-          className={`w-full px-3 py-2 border-2 ${errors.name ? 'border-red-500' : 'border-gray-200'
-            } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all text-sm`}
-          placeholder={labels.namePlaceholder}
-        />
-        {errors.name && (
-          <p className="mt-2 text-sm text-red-600">{errors.name}</p>
-        )}
-      </div>
-<div className="w-20">
-      <label htmlFor="new-branch-count" className="block text-sm font-semibold text-gray-700 mb-2">
-        Records *
-      </label>
-      <input
-        type="number"
-        id="new-branch-count"
-        name="count"
-    value={formData.count}
-    onChange={handleChange}
-    min="1"
-    className={`w-full px-3 py-2 border-2 ${errors.count ? 'border-red-500' : 'border-gray-200'
-      } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all text-sm`}
-    placeholder=""
-  />
-  {errors.count && (
-    <p className="mt-2 text-sm text-red-600">{errors.count}</p>
-  )}
-</div>
-{/* Only show Add Branch button when no table is visible */}
-      {divisionRows.length === 0 && (
-        <div>
-          <button
-            type="button"
-            onClick={() => {
-              // Save current division data if it exists
-              if (formData.name && formData.count && divisionRows.length > 0) {
-                const newGroup = {
-                  id: divisionGroups.length + 1,
-                  name: formData.name,
-                  count: formData.count,
-                  rows: [...divisionRows]
-                };
-                setDivisionGroups([...divisionGroups, newGroup]);
-                
-                // Clear the division name and count fields
-                setFormData({
-                  ...formData,
-                  name: '',
-                  count: ''
-                });
-                
-                // Clear the current table
-                setDivisionRows([]);
-              }
-            }}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center space-x-2 h-10"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            <span>Add Branch</span>
-          </button>
-        </div>
-      )}
-    </div>
-  </div>
-)}
-{/* Division Records Table */}
-{currentUserRole === 'department' && divisionRows.length > 0 && (
-<div className="space-y-4">
-  <div className="overflow-hidden">
-    <table className="w-full border-collapse">
-  <thead>
-  <tr className="bg-gray-100">
-    <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">S.No</th>
-    <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">Name</th>
-    <th className="border-r border-gray-300 px-3 py-2 text-left text-sm font-medium">Address</th>
-<th className="px-3 py-2 text-left text-sm font-medium">Rolename Suffix</th>
-  </tr>
-</thead>
-      <tbody>
-        {divisionRows.map((row, index) => (
-<tr key={row.id} className="hover:bg-gray-50">
-            <td className="border border-gray-300 px-3 py-2 text-sm">{index + 1}</td>
-<td className="border border-gray-300 px-2 py-1">
-  <input
-    type="text"
-    value={row.name || ''}
-    onChange={(e) => handleDivisionRowChange(index, 'name', e.target.value)}
-    className={`w-full px-2 py-1 border ${errors[`row_${index}_name`] ? 'border-red-500' : 'border-gray-200'
-      } rounded text-sm focus:border-sky-500 outline-none`}
-    placeholder="Enter name"
-  />
-  {errors[`row_${index}_name`] && (
-    <p className="text-xs text-red-600 mt-1">{errors[`row_${index}_name`]}</p>
-  )}
-</td>
-            <td className="border border-gray-300 px-2 py-1">
-              <textarea
-                value={row.address}
-                onChange={(e) => handleDivisionRowChange(index, 'address', e.target.value)}
-                className={`w-full px-2 py-1 border ${errors[`row_${index}_address`] ? 'border-red-500' : 'border-gray-200'
-                  } rounded text-sm focus:border-sky-500 outline-none`}
-                placeholder="Enter address"
-                rows="2"
-              />
-              {errors[`row_${index}_address`] && (
-                <p className="text-xs text-red-600 mt-1">{errors[`row_${index}_address`]}</p>
-              )}
-            </td>
-<td className="border border-gray-300 px-2 py-1">
-  <div className="px-2 py-1 bg-gray-100 rounded text-sm text-gray-600">
-    rolename@{row.name ? row.name.split(' ')[0].toLowerCase() : ''}
-  </div>
-</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-  
-  {/* Add Branch Button - Moved to bottom of table */}
-{/* Add Branch Button - Moved to bottom of table */}
-  <div className="flex justify-start">
-    <button
-      type="button"
-      onClick={() => {
-        if (formData.name && formData.count && divisionRows.length > 0) {
-          const newGroup = {
-            id: divisionGroups.length + 1,
-            name: formData.name,
-            count: formData.count,
-            rows: [...divisionRows]
-          };
-          setDivisionGroups([...divisionGroups, newGroup]);
-          
-          setFormData({
-            ...formData,
-            name: '',
-            count: ''
-          });
-          
-          setDivisionRows([]);
-        }
-      }}
-      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center space-x-2"
-    >
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-      </svg>
-      <span>Add Branch</span>
-    </button>
-  </div>
-</div>
-)}
-{/* Username - only show for non-department roles */}
-{currentUserRole !== 'department' && (
-  <div>
-    <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-      Username *
-    </label>
-    <div className="flex items-center space-x-2">
-      <input
-        type="text"
-        id="username"
-        name="username"
-        value={formData.username}
-        onChange={handleChange}
-        className={`flex-1 px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.username ? 'border-red-500' : 'border-gray-200'
-          } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-        placeholder="Enter username"
-      />
-      <span className="text-gray-500 font-medium">@</span>
-      <input
-        type="text"
-        name="domain"
-        value={formData.domain || formData.name.toLowerCase().replace(/\s+/g, '')}
-        onChange={(e) => setFormData({...formData, domain: e.target.value})}
-        className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border-2 border-gray-200 rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base"
-        placeholder=""
-      />
-    </div>
-    {errors.username && (
-      <p className="mt-2 text-sm text-red-600">{errors.username}</p>
-    )}
-  </div>
-)}
-
-{/* Password - only show for non-department roles */}
-{currentUserRole !== 'department' && (
-  <div>
-    <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-      Password *
-    </label>
-    <input
-      type="password"
-      id="password"
-      name="password"
-      value={formData.password}
-      onChange={handleChange}
-      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.password ? 'border-red-500' : 'border-gray-200'
-        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-      placeholder="Enter password"
-    />
-    {errors.password && (
-      <p className="mt-2 text-sm text-red-600">{errors.password}</p>
-    )}
-  </div>
-)}
-
-{/* Mobile - only show for non-department roles */}
-{currentUserRole !== 'department' && (
-  <div>
-    <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
-      Contact *
-    </label>
-    <input
-      type="text"
-      id="mobile"
-      name="mobile"
-      value={formData.mobile}
-      onChange={handleChange}
-      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.mobile ? 'border-red-500' : 'border-gray-200'
-        } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
-      placeholder="Enter 10-digit mobile number"
-    />
-    {errors.mobile && (
-      <p className="mt-2 text-sm text-red-600">{errors.mobile}</p>
-    )}
-  </div>
-)}
-
-{/* Action Buttons */}
-                  <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-4 sm:pt-6">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormData({
-                          p_id: null,
-                          name: '',
-                          username: '',
-                          password: '',
-                          role: '',
-                          mobile: '',
-                          count: '',
-                        });
-                        setDivisionRows([]);
-                        setErrors({});
-                      }}
-                      className="w-full sm:w-auto px-4 sm:px-6 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 font-medium text-sm"
-                    >
-                      Clear Form
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className={`w-full sm:w-auto px-4 sm:px-6 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-lg font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm`}
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>Creating...</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                          <span>{labels.createButtonText}</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
             </div>
-          </div>
-        </div>
 
-        {/* User Details Modal */}
-        {showModal && selectedDepartment && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-              <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-semibold text-sky-800">{selectedDepartment.name}</h2>
-                  <p className="text-sm text-gray-600 mt-1">{departmentUsers.length} {currentUserRole === 'rcs-admin' ? 'Divisions' : currentUserRole === 'department' ? 'Users' : 'Users'}</p>
+            <div className={`transition-all duration-500 ease-in-out transform ${showForm
+              ? 'xl:col-span-3 lg:col-span-1 translate-x-0 opacity-100 mt-8 xl:mt-0'
+              : 'xl:col-span-0 lg:col-span-0 translate-x-full opacity-0 overflow-hidden w-0'
+              } ${showForm ? 'block' : 'hidden xl:block'}`}>
+              <div className="bg-white shadow-xl rounded-2xl overflow-hidden h-fit">
+                <div className="px-6 py-4 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 flex justify-between items-center">
+                  <h2 className="text-lg sm:text-xl font-semibold text-sky-800">{labels.formTitle}</h2>
+                  <button
+                    onClick={handleCancelForm}
+                    className="text-gray-500 hover:text-gray-700 transition-colors p-1"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="text-gray-500 hover:text-gray-700 transition-colors p-1"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
 
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                {departmentUsers.length > 0 ? (
-                  <div className="space-y-4">
-                    {departmentUsers.map((user, index) => (
-                      <div key={user.id || index} className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center">
-                              <span className="text-white font-medium text-sm">
-                                {user.username ? user.username.charAt(0).toUpperCase() : user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                              </span>
-                            </div>
-                            <div>
-                              <h4 className="font-medium text-gray-900">{user.name || user.username}</h4>
-                              <p className="text-sm text-gray-600">{user.role}</p>
-                              {user.address && <p className="text-xs text-gray-500">{user.address}</p>}
-                              {user.jailerInfo && <p className="text-xs text-gray-500">Jailer: {user.jailerInfo}</p>}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            {user.mobile && (
-                              <>
-                                <p className="text-sm text-gray-600">{user.mobile}</p>
-                                <p className="text-xs text-gray-500">Mobile</p>
-                              </>
-                            )}
-                          </div>
+                <div className="p-6">
+                  {errors.general && (
+                    <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <h3 className="text-sm font-medium text-red-800">Error Creating {labels.entityName}</h3>
+                          <p className="mt-1 text-sm text-red-600">{errors.general}</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
-                    <p className="mt-1 text-sm text-gray-500">This {labels.entityName.toLowerCase()} doesn't have any users yet.</p>
-                  </div>
-                )}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+                    <div>
+                      <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+                        {labels.nameLabel} *
+                      </label>
+                      <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.name ? 'border-red-500' : 'border-gray-200'
+                          } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+                        placeholder={labels.namePlaceholder}
+                      />
+                      {errors.name && (
+                        <p className="mt-2 text-sm text-red-600">{errors.name}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+                        Username *
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          id="username"
+                          name="username"
+                          value={formData.username}
+                          onChange={handleChange}
+                          className={`flex-1 px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.username ? 'border-red-500' : 'border-gray-200'
+                            } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+                          placeholder="Enter username"
+                        />
+                        <span className="text-gray-500 font-medium">@</span>
+                        <input
+                          type="text"
+                          name="domain"
+                          value={formData.domain || formData.name.toLowerCase().replace(/\s+/g, '')}
+                          onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                          className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border-2 border-gray-200 rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base"
+                          placeholder=""
+                        />
+                      </div>
+                      {errors.username && (
+                        <p className="mt-2 text-sm text-red-600">{errors.username}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+                        Password *
+                      </label>
+                      <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.password ? 'border-red-500' : 'border-gray-200'
+                          } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+                        placeholder="Enter password"
+                      />
+                      {errors.password && (
+                        <p className="mt-2 text-sm text-red-600">{errors.password}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+                        Contact *
+                      </label>
+                      <input
+                        type="text"
+                        id="mobile"
+                        name="mobile"
+                        value={formData.mobile}
+                        onChange={handleChange}
+                        className={`w-full px-3 sm:px-4 py-2 sm:py-3 border-2 ${errors.mobile ? 'border-red-500' : 'border-gray-200'
+                          } rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all duration-300 text-sm sm:text-base`}
+                        placeholder="Enter 10-digit mobile number"
+                      />
+                      {errors.mobile && (
+                        <p className="mt-2 text-sm text-red-600">{errors.mobile}</p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-4 sm:pt-6">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData({
+                            p_id: null,
+                            name: '',
+                            username: '',
+                            password: '',
+                            role: '',
+                            mobile: '',
+                            count: '',
+                          });
+                          setDivisionRows([]);
+                          setErrors({});
+                        }}
+                        className="w-full sm:w-auto px-4 sm:px-6 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 font-medium text-sm"
+                      >
+                        Clear Form
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className={`w-full sm:w-auto px-4 sm:px-6 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-lg font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm`}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Creating...</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            <span>{labels.createButtonText}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             </div>
           </div>
         )}
+
 
         {/* Add User to Department Modal */}
         {showUserFormModal && (
@@ -1387,9 +2133,8 @@ const handleUserFormSubmit = async (e) => {
                           setUserFormErrors({ ...userFormErrors, username: '' });
                         }
                       }}
-                      className={`w-full px-3 py-2 border-2 ${
-                        userFormErrors.username ? 'border-red-500' : 'border-gray-200'
-                      } rounded-lg focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all`}
+                      className={`w-full px-3 py-2 border-2 ${userFormErrors.username ? 'border-red-500' : 'border-gray-200'
+                        } rounded-lg focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all`}
                       placeholder="Enter username"
                     />
                     {userFormErrors.username && (
@@ -1411,9 +2156,8 @@ const handleUserFormSubmit = async (e) => {
                           setUserFormErrors({ ...userFormErrors, password: '' });
                         }
                       }}
-                      className={`w-full px-3 py-2 border-2 ${
-                        userFormErrors.password ? 'border-red-500' : 'border-gray-200'
-                      } rounded-lg focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all`}
+                      className={`w-full px-3 py-2 border-2 ${userFormErrors.password ? 'border-red-500' : 'border-gray-200'
+                        } rounded-lg focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all`}
                       placeholder="Enter password"
                     />
                     {userFormErrors.password && (
@@ -1435,9 +2179,8 @@ const handleUserFormSubmit = async (e) => {
                           setUserFormErrors({ ...userFormErrors, mobile: '' });
                         }
                       }}
-                      className={`w-full px-3 py-2 border-2 ${
-                        userFormErrors.mobile ? 'border-red-500' : 'border-gray-200'
-                      } rounded-lg focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all`}
+                      className={`w-full px-3 py-2 border-2 ${userFormErrors.mobile ? 'border-red-500' : 'border-gray-200'
+                        } rounded-lg focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all`}
                       placeholder="Enter 10-digit mobile number"
                     />
                     {userFormErrors.mobile && (

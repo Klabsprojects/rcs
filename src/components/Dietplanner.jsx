@@ -13,20 +13,39 @@ const DietPlanner = () => {
   const [userInfoList, setUserInfoList] = useState([]);
   const [selectedUserIndex, setSelectedUserIndex] = useState(null);
   const [expandedUserIndex, setExpandedUserIndex] = useState(null);
-  const [formInputs, setFormInputs] = useState({ type: '', role: '', dietType: '' });
+
+const [eaterTypes, setEaterTypes] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [segments, setSegments] = useState([]);
+  const [formInputs, setFormInputs] = useState({ type: '', subType: '', dietType: '' });
+const selectedEaterType = eaterTypes.find(type => type.name === formInputs.type);
   const [segmentsLoading, setSegmentsLoading] = useState(false);
   const [expandedSegment, setExpandedSegment] = useState(null);
   const [selectedSegmentForPlan, setSelectedSegmentForPlan] = useState(null);
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [showSegmentPlanModal, setShowSegmentPlanModal] = useState(false);
+// Add these new state variables
 
   // Fetch segments on component mount using GET API
-  useEffect(() => {
-    fetchSegments();
-  }, []);
+// Fetch data on component mount
+useEffect(() => {
+  fetchSegments();
+  fetchEaterTypes();
+}, []);
+useEffect(() => {
+  const handleClickOutside = (event) => {
+    if (showTypeDropdown && !event.target.closest('.relative')) {
+      setShowTypeDropdown(false);
+    }
+  };
+
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => {
+    document.removeEventListener('mousedown', handleClickOutside);
+  };
+}, [showTypeDropdown]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -76,48 +95,68 @@ const DietPlanner = () => {
     }
   };
 
-  // POST API call to create/filter segment data
-  const fetchSegmentData = async (category, role, diet) => {
-    try {
-      setLoading(true);
-      setApiError('');
-      
-      const token = localStorage.getItem('authToken');
-      
-      if (!token) {
-        throw new Error('Authentication token not found. Please login again.');
+ // Fetch Eater Types
+const fetchEaterTypes = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/master/eater-type`, {
+      headers: {
+        'Authorization': localStorage.getItem('authToken')
       }
-
-      const response = await fetch(`${API_BASE_URL}/segment`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          category: category,
-          role: role,
-          diet: diet
-        })
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Session expired. Please login again.');
-        }
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      if (result.error === false && Array.isArray(result.data)) {
+        setEaterTypes(result.data);
       }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error fetching segment data:', error);
-      setApiError(error.message);
-      return null;
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (err) {
+    console.error('Error fetching eater types:', err);
+  }
+};
+
+// Fetch Eater Roles  
+
+const fetchSegmentData = async (category, diet) => {
+  try {
+    setLoading(true);
+    setApiError('');
+    
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+      throw new Error('Authentication token not found. Please login again.');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/segment`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        category: category,
+        diet: diet
+      })
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Session expired. Please login again.');
+      }
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching segment data:', error);
+    setApiError(error.message);
+    return null;
+  } finally {
+    setLoading(false);
+  }
+};
 const handleSavePlan = async (plan) => {
   const user = userInfoList[selectedUserIndex];
   
@@ -251,20 +290,25 @@ const handleSavePlan = async (plan) => {
     }
   };
 
-  const handleUserCreation = async () => {
-    const { type, role, dietType } = formInputs;
-    if (!type || !role || !dietType) {
-      alert('Please fill all fields');
-      return;
-    }
+const handleUserCreation = async () => {
+  const { type, subType, dietType } = formInputs;
+  
+  const isSubTypeRequired = selectedEaterType && selectedEaterType.sub && selectedEaterType.sub.length > 0;
+  
+  if (!type || !dietType || (isSubTypeRequired && !subType)) {
+    alert('Please fill all required fields');
+    return;
+  }
 
-    // Map dietType to API format
-    const dietMapping = {
-      'veg': 'Vegetarian',
-      'non-veg': 'Non-Vegetarian'
-    };
+  const dietMapping = {
+    'veg': 'Vegetarian',
+    'non-veg': 'Non-Vegetarian'
+  };
 
-    const segmentData = await fetchSegmentData(type, role, dietMapping[dietType]);
+// If subType exists, send category with subType bound together
+const categoryForAPI = subType ? `${type} - ${subType}` : type;
+const segmentData = await fetchSegmentData(categoryForAPI, dietMapping[dietType]);;
+
     
     if (apiError || !segmentData) {
       alert(`Failed to fetch segment data: ${apiError || 'Unknown error'}`);
@@ -275,20 +319,14 @@ const handleSavePlan = async (plan) => {
     console.log('Full segment data response:', JSON.stringify(segmentData, null, 2));
 
     // FIXED: Find matching segment from segments list instead of using user.id
-    const matchingSegment = segments.find(segment => 
-      segment.category === type && 
-      segment.role === role && 
-      segment.diet === dietMapping[dietType]
-    );
-
+const matchingSegment = segments.find(segment => 
+  segment.category === categoryForAPI && 
+  segment.diet === dietMapping[dietType]
+);
     let segmentId = null;
     if (matchingSegment) {
       segmentId = matchingSegment.id;
       console.log('Found matching segment ID:', segmentId);
-    } else {
-      console.error('No matching segment found in segments list');
-      alert('No matching segment found. Please refresh segments and try again.');
-      return;
     }
 
     const newUser = {
@@ -301,7 +339,7 @@ const handleSavePlan = async (plan) => {
 
     console.log('Created user with segment ID:', segmentId);
     setUserInfoList([...userInfoList, newUser]);
-    setFormInputs({ type: '', role: '', dietType: '' });
+setFormInputs({ type: '', subType: '', dietType: '' });
   };
 
 const handleSaveSegmentPlan = async (plan) => {
@@ -363,65 +401,73 @@ const handleSaveSegmentPlan = async (plan) => {
     
       
 
-      {/* Form for creating users */}
-      <div className="bg-sky-50 p-4 rounded shadow mb-6 flex gap-4 items-end">
-        <div className="flex-1">
-          <label className="block text-sm text-gray-700">User Type</label>
-          <select
-            name="type"
-            value={formInputs.type}
-            onChange={handleInputChange}
-            className="w-full border px-3 py-2 rounded"
-            disabled={loading}
-          >
-            <option value="">Select User Type</option>
-            <option value="Class A Prisoner">Class A Prisoner</option>
-            <option value="Class B Prisoner">Class B Prisoner</option>
-          </select>
-        </div>
-        <div className="flex-1">
-          <label className="block text-sm text-gray-700">Segment Role</label>
-          <select
-            name="role"
-            value={formInputs.role}
-            onChange={handleInputChange}
-            className="w-full border px-3 py-2 rounded"
-            disabled={loading}
-          >
-            <option value="">Select Segment Type</option>
-            <option value="Labour">Labour</option>
-            <option value="Non - Labour">Non - Labour</option>
-          </select>
-        </div>
-        <div className="flex-1">
-          <label className="block text-sm text-gray-700">Diet Type</label>
-          <select
-            name="dietType"
-            value={formInputs.dietType}
-            onChange={handleInputChange}
-            className="w-full border px-3 py-2 rounded"
-            disabled={loading}
-          >
-            <option value="">Select</option>
-            <option value="veg">Vegetarian</option>
-            <option value="non-veg">Non-Vegetarian</option>
-          </select>
-        </div>
-        <button
-          onClick={handleUserCreation}
-          disabled={loading}
-          className={`px-4 py-2 rounded text-white flex items-center space-x-2 ${
-            loading 
-              ? 'bg-gray-400 cursor-not-allowed' 
-              : 'bg-green-600 hover:bg-green-700'
-          }`}
-        >
-          {loading && (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-          )}
-          <span>{loading ? 'Creating...' : 'Create'}</span>
-        </button>
-      </div>
+<div className="bg-sky-50 p-4 rounded shadow mb-6 flex gap-4 items-end">
+  <div className="flex-1">
+    <label className="block text-sm text-gray-700">User Type</label>
+    <select
+      name="type"
+      value={formInputs.type}
+      onChange={(e) => {
+        setFormInputs({...formInputs, type: e.target.value, subType: ''});
+      }}
+      className="w-full border px-3 py-2 rounded"
+      disabled={loading}
+    >
+      <option value="">Select User Type</option>
+      {eaterTypes.map((type) => (
+        <option key={type.id} value={type.name}>{type.name}</option>
+      ))}
+    </select>
+  </div>
+  
+  {/* Sub Type dropdown - shows only if selected type has sub array */}
+  {selectedEaterType && selectedEaterType.sub && selectedEaterType.sub.length > 0 && (
+    <div className="flex-1">
+      <label className="block text-sm text-gray-700">Sub Type</label>
+      <select
+        name="subType"
+        value={formInputs.subType}
+        onChange={(e) => setFormInputs({...formInputs, subType: e.target.value})}
+        className="w-full border px-3 py-2 rounded"
+        disabled={loading}
+      >
+        <option value="">Select Sub Type</option>
+        {selectedEaterType.sub.map((subType, index) => (
+          <option key={index} value={subType}>{subType}</option>
+        ))}
+      </select>
+    </div>
+  )}
+  
+  <div className="flex-1">
+    <label className="block text-sm text-gray-700">Diet Type</label>
+    <select
+      name="dietType"
+      value={formInputs.dietType}
+      onChange={handleInputChange}
+      className="w-full border px-3 py-2 rounded"
+      disabled={loading}
+    >
+      <option value="">Select</option>
+      <option value="veg">Vegetarian</option>
+      <option value="non-veg">Non-Vegetarian</option>
+    </select>
+  </div>
+  <button
+    onClick={handleUserCreation}
+    disabled={loading}
+    className={`px-4 py-2 rounded text-white flex items-center space-x-2 ${
+      loading 
+        ? 'bg-gray-400 cursor-not-allowed' 
+        : 'bg-green-600 hover:bg-green-700'
+    }`}
+  >
+    {loading && (
+      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+    )}
+    <span>{loading ? 'Creating...' : 'Create'}</span>
+  </button>
+</div>
 
       {/* Error Display */}
       {apiError && (
