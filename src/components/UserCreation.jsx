@@ -39,21 +39,25 @@ const UserManagement = () => {
 
   const [showAddUserForm, setShowAddUserForm] = useState(false);
   const [selectedBranchForUser, setSelectedBranchForUser] = useState(null);
-const [addUserForm, setAddUserForm] = useState({
-  name: '',
-  district: '',
-  contact: '',
-  address: '',
-  suffix: ''
-});
+  const [addUserForm, setAddUserForm] = useState({
+    name: '',
+    district: '',
+    location: '', // ← newly added field
+    contact: '',
+
+    address: '',
+    suffix: ''
+  });
 
   const [expandedBranchId, setExpandedBranchId] = useState(null);
-const [expandedTypes, setExpandedTypes] = useState([]);
-const [selectedUser, setSelectedUser] = useState(null);
-const [openBranchForm, setOpenBranchForm] = useState(null); // Add this line
+  const [expandedTypes, setExpandedTypes] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [openBranchForm, setOpenBranchForm] = useState(null); // Add this line
   const [isEditingUser, setIsEditingUser] = useState(false);
 
   const [showNewUserField, setShowNewUserField] = useState(false);
+
+  const [expandedUsers, setExpandedUsers] = useState({});
 
 
   const [isCreatingTypeFromTop, setIsCreatingTypeFromTop] = useState(false);
@@ -72,15 +76,24 @@ const [openBranchForm, setOpenBranchForm] = useState(null); // Add this line
   const [loading, setLoading] = useState(true);
   const [formMode, setFormMode] = useState('createBranch'); // 'createBranch' or 'addUser'
   // Modal state
-const [expandedDepartments, setExpandedDepartments] = useState([]);
-
+  const [expandedDepartments, setExpandedDepartments] = useState([]);
+  const [newPassword, setNewPassword] = useState('');
   // State for form submission and validation
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitSuccess, setSubmitSuccess] = useState(false);
-const [branchUsers, setBranchUsers] = useState({}); // Store users per branch
+  const [branchUsers, setBranchUsers] = useState({}); // Store users per branch
   // State for form visibility
   const [showForm, setShowForm] = useState(currentUserRole === 'department' ? true : false);
+
+
+  const [activeRowAction, setActiveRowAction] = useState(null); // e.g. { type: 'reset', rowId: 1 }
+
+
+  const [selectedUserView, setSelectedUserView] = useState(null);
+  const [selectedUserEdit, setSelectedUserEdit] = useState(null);
+  const [editedUser, setEditedUser] = useState({ name: '', username: '', branch: '' });
+
 
   const [showUserFormModal, setShowUserFormModal] = useState(false);
   const [selectedDepartmentName, setSelectedDepartmentName] = useState('');
@@ -88,6 +101,12 @@ const [branchUsers, setBranchUsers] = useState({}); // Store users per branch
   const [userFormErrors, setUserFormErrors] = useState({});
 
   const [newUserName, setNewUserName] = useState('');
+
+  const [expandedReset, setExpandedReset] = useState(null); // currently expanded department
+  const [tempPassword, setTempPassword] = useState('');
+
+  const [expandedProfile, setExpandedProfile] = useState(null);
+
 
 
   // Get the appropriate role for creation based on current user role
@@ -150,52 +169,52 @@ const [branchUsers, setBranchUsers] = useState({}); // Store users per branch
   };
 
   const labels = getLabels();
-const generateUsernameSuffix = (branchType, district) => {
-  // Get user info from localStorage
-  const userInfo = localStorage.getItem('user');
-  let departmentShortForm = '';
-  
-  if (userInfo) {
-    try {
-      const parsed = JSON.parse(userInfo);
-      const departmentName = parsed.name || '';
-      
-      // Extract first letter of each word to create department short form
-      const words = departmentName.trim().split(' ');
-      departmentShortForm = words.map(word => word.charAt(0).toUpperCase()).join('');
-    } catch (error) {
-      console.error('Error parsing user info for suffix generation:', error);
-      departmentShortForm = 'DEP'; // fallback
-    }
-  }
-  
-  // Get first 3 characters of branch type and district
-  const branchTypeShort = branchType ? branchType.substring(0, 3).toUpperCase() : '';
-  const districtShort = district ? district.substring(0, 3).toUpperCase() : '';
-  
-  // Format: TN + DepartmentShortForm + BranchTypeFirst3 + DistrictFirst3
-  return `TN${departmentShortForm}${branchTypeShort}${districtShort}`;
-};
-const handleCreateAllBranches = async () => {
-  console.log('Button clicked!');
-  console.log('divisionGroups:', divisionGroups);
-  console.log('formData:', formData);
-  
-  if (divisionGroups.length === 0) {
-    console.log('No division groups to process');
-    setErrors({ general: 'Please create some branch types first before submitting.' });
-    return;
-  }
+  const generateUsernameSuffix = (branchType, district) => {
+    // Get user info from localStorage
+    const userInfo = localStorage.getItem('user');
+    let departmentShortForm = '';
 
-  // Create a fake event object for handleSubmit
-  const fakeEvent = {
-    preventDefault: () => console.log('preventDefault called')
+    if (userInfo) {
+      try {
+        const parsed = JSON.parse(userInfo);
+        const departmentName = parsed.name || '';
+
+        // Extract first letter of each word to create department short form
+        const words = departmentName.trim().split(' ');
+        departmentShortForm = words.map(word => word.charAt(0).toUpperCase()).join('');
+      } catch (error) {
+        console.error('Error parsing user info for suffix generation:', error);
+        departmentShortForm = 'DEP'; // fallback
+      }
+    }
+
+    // Get first 3 characters of branch type and district
+    const branchTypeShort = branchType ? branchType.substring(0, 3).toUpperCase() : '';
+    const districtShort = district ? district.substring(0, 3).toUpperCase() : '';
+
+    // Format: TN + DepartmentShortForm + BranchTypeFirst3 + DistrictFirst3
+    return `TN${departmentShortForm}${branchTypeShort}${districtShort}`;
   };
-  
-  console.log('About to call handleSubmit');
-  await handleSubmit(fakeEvent);
-  console.log('handleSubmit completed');
-};
+  const handleCreateAllBranches = async () => {
+    console.log('Button clicked!');
+    console.log('divisionGroups:', divisionGroups);
+    console.log('formData:', formData);
+
+    if (divisionGroups.length === 0) {
+      console.log('No division groups to process');
+      setErrors({ general: 'Please create some branch types first before submitting.' });
+      return;
+    }
+
+    // Create a fake event object for handleSubmit
+    const fakeEvent = {
+      preventDefault: () => console.log('preventDefault called')
+    };
+
+    console.log('About to call handleSubmit');
+    await handleSubmit(fakeEvent);
+    console.log('handleSubmit completed');
+  };
   const parseApiError = (errorResponse) => {
     try {
       // If it's already a string, return it
@@ -255,64 +274,64 @@ const handleCreateAllBranches = async () => {
   useEffect(() => {
     fetchUsers();
   }, []);
-// Add this useEffect after your existing useEffects
-// Load branch data on component mount for department role
-useEffect(() => {
-  if (currentUserRole === 'department') {
-    fetchBranchDetails();
-  }
-}, [currentUserRole]);
-const handleTypeClick = async (departmentName, typeName) => {
-  // Remove second level expansion - types are no longer clickable
-  return;
-};
-const fetchBranchesByType = async (branchType) => {
-  try {
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/user/branches?type=${encodeURIComponent(branchType)}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const result = await response.json();
-    
-    if (result.error === false && result.data) {
-      // Transform the API response to match your frontend structure
-      const transformedBranches = [];
-      
-      Object.keys(result.data).forEach(typeKey => {
-        if (typeKey === branchType || typeKey === 'undefined') {
-          Object.keys(result.data[typeKey]).forEach(locationKey => {
-            const branchUsers = result.data[typeKey][locationKey];
-            if (branchUsers && branchUsers.length > 0) {
-              // Get branch info from the first user (all users in same branch have same branch info)
-              const firstUser = branchUsers[0];
-              const branch = {
-                id: `${typeKey}-${locationKey}`, // Create unique ID
-                name: firstUser.branch || locationKey,
-                district: firstUser.detail?.location || locationKey,
-                contact: firstUser.detail?.contact || '',
-                suffix: firstUser.username?.split('@')[1] || '',
-                branch_type: firstUser.detail?.branch_type || firstUser.branch_type || typeKey,
-                users: branchUsers // Store all users for this branch
-              };
-              transformedBranches.push(branch);
-            }
-          });
-        }
-      });
-      
-      return transformedBranches;
+  // Add this useEffect after your existing useEffects
+  // Load branch data on component mount for department role
+  useEffect(() => {
+    if (currentUserRole === 'department') {
+      fetchBranchDetails();
     }
-    return [];
-  } catch (error) {
-    console.error('Error fetching branches:', error);
-    return [];
-  }
-};
+  }, [currentUserRole]);
+  const handleTypeClick = async (departmentName, typeName) => {
+    // Remove second level expansion - types are no longer clickable
+    return;
+  };
+  const fetchBranchesByType = async (branchType) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/user/branches?type=${encodeURIComponent(branchType)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.error === false && result.data) {
+        // Transform the API response to match your frontend structure
+        const transformedBranches = [];
+
+        Object.keys(result.data).forEach(typeKey => {
+          if (typeKey === branchType || typeKey === 'undefined') {
+            Object.keys(result.data[typeKey]).forEach(locationKey => {
+              const branchUsers = result.data[typeKey][locationKey];
+              if (branchUsers && branchUsers.length > 0) {
+                // Get branch info from the first user (all users in same branch have same branch info)
+                const firstUser = branchUsers[0];
+                const branch = {
+                  id: `${typeKey}-${locationKey}`, // Create unique ID
+                  name: firstUser.branch || locationKey,
+                  district: firstUser.detail?.location || locationKey,
+                  contact: firstUser.detail?.contact || '',
+                  suffix: firstUser.username?.split('@')[1] || '',
+                  branch_type: firstUser.detail?.branch_type || firstUser.branch_type || typeKey,
+                  users: branchUsers // Store all users for this branch
+                };
+                transformedBranches.push(branch);
+              }
+            });
+          }
+        });
+
+        return transformedBranches;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+      return [];
+    }
+  };
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('authToken');
@@ -360,193 +379,11 @@ const fetchBranchesByType = async (branchType) => {
       }
     }
   }, [formData.count, formData.name, currentUserRole]);
-// Add this new function after fetchUsers
-const fetchBranchDetails = async () => {
-  try {
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/user`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const result = await response.json();
-    
-    if (result.error === false && result.data) {
-      const processedGroups = [];
-      
-      // Iterate through each branch type (Child Care, Primary Health Care, etc.)
-      Object.keys(result.data).forEach(branchType => {
-        const branches = [];
-        
-        // Iterate through each branch location under this type
-        Object.keys(result.data[branchType]).forEach(branchKey => {
-          const users = result.data[branchType][branchKey];
-          
-          if (users && users.length > 0) {
-            const firstUser = users[0];
-            
-            // If branchKey is "undefined", use the location as branch name
-            // If branchKey has a value (like "Chennai"), use that as branch name
-            const branchName = branchKey === 'undefined' ? firstUser.location : branchKey;
-            
-            branches.push({
-              id: `${branchType}-${branchKey}`,
-              name: branchName, // This will be "Chennai" or "AVR complex" correctly
-              district: firstUser.location, // This will be "Guindy" for Chennai, "AVR complex" for undefined
-              contact: firstUser.contact || '',
-              suffix: firstUser.username?.split('@')[1] || '',
-              users: users
-            });
-          }
-        });
-        
-        // Add the branch type group with branches loaded
-        if (branches.length > 0) {
-          processedGroups.push({
-            id: Date.now() + Math.random(),
-            name: branchType,
-            details: branches
-          });
-        }
-      });
-      
-      setDivisionGroups(processedGroups);
-    }
-  } catch (error) {
-    console.error('Error fetching branch details:', error);
-  }
-};
-
-// Add this function after fetchUsers
-const fetchBranchesForType = async (typeName) => {
-  try {
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/user`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const result = await response.json();
-    
-    if (result.error === false && result.data && result.data[typeName]) {
-      const branches = [];
-      
-      Object.keys(result.data[typeName]).forEach(branchKey => {
-        const users = result.data[typeName][branchKey];
-        
-        if (users && users.length > 0) {
-          const firstUser = users[0];
-          
-          // Use branch name from API or location if branch is undefined
-          const branchName = branchKey === 'undefined' ? firstUser.location : branchKey;
-          
-          branches.push({
-            id: `${typeName}-${branchKey}`,
-            name: branchName,
-            district: firstUser.location || branchKey,
-            contact: firstUser.contact || '',
-            suffix: firstUser.username?.split('@')[1] || '',
-            users: users
-          });
-        }
-      });
-      
-      return branches;
-    }
-    return [];
-  } catch (error) {
-    console.error('Error fetching branches for type:', error);
-    return [];
-  }
-};
-const getDepartments = () => {
-  if (!users) {
-    return [];
-  }
-  
-  // For rcs-admin, get departments from API structure
-  if (currentUserRole === 'rcs-admin') {
-    if (typeof users !== 'object') return [];
-return Object.keys(users).filter(key => key !== 'user').map(departmentName => {
-  const departmentData = users[departmentName] || {};
-  const typeCount = Object.keys(departmentData).length;
-  
-  // Calculate total branches and users
-  let totalBranches = 0;
-  let totalUsers = 0;
-  
-  Object.values(departmentData).forEach(branches => {
-    totalBranches += Object.keys(branches).length;
-    Object.values(branches).forEach(branchUsers => {
-      if (Array.isArray(branchUsers)) {
-        totalUsers += branchUsers.length;
-      }
-    });
-  });
-  
-  return {
-    id: departmentName,
-    name: departmentName,
-    typeCount: typeCount,
-    totalBranches: totalBranches,
-    totalUsers: totalUsers
-  };
-});
-  }
-  
-  // For other roles, use existing logic
-  if (!Array.isArray(users)) {
-    return [];
-  }
-  return users.map(user => ({
-    id: user.id,
-    name: user.name,
-    userCount: currentUserRole === 'rcs-admin' ? (user.divisions || 0) : (user.users || 0)
-  }));
-};
-
-  // Handle department click
-  // Handle department click - Modified to fetch divisions by department ID
-const handleDepartmentClick = async (department) => {
-  try {
-    // Check if department is already expanded
-    const isExpanded = expandedDepartments.find(d => d.id === department.id);
-    
-    if (isExpanded) {
-      // Collapse - remove from expanded list
-      setExpandedDepartments(expandedDepartments.filter(d => d.id !== department.id));
-      return;
-    }
-
-if (currentUserRole === 'rcs-admin') {
-      const departmentData = users[department.name] || {};
-      const types = Object.keys(departmentData).map(typeName => {
-        const branches = departmentData[typeName] || {};
-        const totalUsers = Object.values(branches).reduce((total, branchUsers) => {
-          return total + (Array.isArray(branchUsers) ? branchUsers.length : 0);
-        }, 0);
-        
-        return {
-          id: typeName,
-          name: typeName,
-          userCount: totalUsers,
-          branchCount: Object.keys(branches).length
-        };
-      });
-      
-      setExpandedDepartments([...expandedDepartments, {
-        ...department,
-        divisions: types
-      }]);
-    } else {
+  // Add this new function after fetchUsers
+  const fetchBranchDetails = async () => {
+    try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/user?division=${department.id}`, {
+      const response = await fetch(`${API_BASE_URL}/user`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -556,21 +393,203 @@ if (currentUserRole === 'rcs-admin') {
 
       const result = await response.json();
 
-      if (result.error === false) {
+      if (result.error === false && result.data) {
+        const processedGroups = [];
+
+        // Iterate through each branch type (Child Care, Primary Health Care, etc.)
+        Object.keys(result.data).forEach(branchType => {
+          const branches = [];
+
+          // Iterate through each branch location under this type
+          Object.keys(result.data[branchType]).forEach(branchKey => {
+            const users = result.data[branchType][branchKey];
+
+            if (users && users.length > 0) {
+              const firstUser = users[0];
+
+              // If branchKey is "undefined", use the location as branch name
+              // If branchKey has a value (like "Chennai"), use that as branch name
+              const branchName = branchKey === 'undefined' ? firstUser.location : branchKey;
+
+              branches.push({
+                id: `${branchType}-${branchKey}`,
+                name: branchName, // This will be "Chennai" or "AVR complex" correctly
+                district: firstUser.location, // This will be "Guindy" for Chennai, "AVR complex" for undefined
+                contact: firstUser.contact || '',
+                suffix: firstUser.username?.split('@')[1] || '',
+                users: users
+              });
+            }
+          });
+
+          // Add the branch type group with branches loaded
+          if (branches.length > 0) {
+            processedGroups.push({
+              id: Date.now() + Math.random(),
+              name: branchType,
+              details: branches
+            });
+          }
+        });
+
+        setDivisionGroups(processedGroups);
+      }
+    } catch (error) {
+      console.error('Error fetching branch details:', error);
+    }
+  };
+
+  // Add this function after fetchUsers
+  const fetchBranchesForType = async (typeName) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/user`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.error === false && result.data && result.data[typeName]) {
+        const branches = [];
+
+        Object.keys(result.data[typeName]).forEach(branchKey => {
+          const users = result.data[typeName][branchKey];
+
+          if (users && users.length > 0) {
+            const firstUser = users[0];
+
+            // Use branch name from API or location if branch is undefined
+            const branchName = branchKey === 'undefined' ? firstUser.location : branchKey;
+
+            branches.push({
+              id: `${typeName}-${branchKey}`,
+              name: branchName,
+              district: firstUser.location || branchKey,
+              contact: firstUser.contact || '',
+              suffix: firstUser.username?.split('@')[1] || '',
+              users: users
+            });
+          }
+        });
+
+        return branches;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching branches for type:', error);
+      return [];
+    }
+  };
+  const getDepartments = () => {
+    if (!users) {
+      return [];
+    }
+
+    // For rcs-admin, get departments from API structure
+    if (currentUserRole === 'rcs-admin') {
+      if (typeof users !== 'object') return [];
+      return Object.keys(users).filter(key => key !== 'user').map(departmentName => {
+        const departmentData = users[departmentName] || {};
+        const typeCount = Object.keys(departmentData).length;
+
+        // Calculate total branches and users
+        let totalBranches = 0;
+        let totalUsers = 0;
+
+        Object.values(departmentData).forEach(branches => {
+          totalBranches += Object.keys(branches).length;
+          Object.values(branches).forEach(branchUsers => {
+            if (Array.isArray(branchUsers)) {
+              totalUsers += branchUsers.length;
+            }
+          });
+        });
+
+        return {
+          id: departmentName,
+          name: departmentName,
+          typeCount: typeCount,
+          totalBranches: totalBranches,
+          totalUsers: totalUsers
+        };
+      });
+    }
+
+    // For other roles, use existing logic
+    if (!Array.isArray(users)) {
+      return [];
+    }
+    return users.map(user => ({
+      id: user.id,
+      name: user.name,
+      userCount: currentUserRole === 'rcs-admin' ? (user.divisions || 0) : (user.users || 0)
+    }));
+  };
+
+  // Handle department click
+  // Handle department click - Modified to fetch divisions by department ID
+  const handleDepartmentClick = async (department) => {
+    try {
+      // Check if department is already expanded
+      const isExpanded = expandedDepartments.find(d => d.id === department.id);
+
+      if (isExpanded) {
+        // Collapse - remove from expanded list
+        setExpandedDepartments(expandedDepartments.filter(d => d.id !== department.id));
+        return;
+      }
+
+      if (currentUserRole === 'rcs-admin') {
+        const departmentData = users[department.name] || {};
+        const types = Object.keys(departmentData).map(typeName => {
+          const branches = departmentData[typeName] || {};
+          const totalUsers = Object.values(branches).reduce((total, branchUsers) => {
+            return total + (Array.isArray(branchUsers) ? branchUsers.length : 0);
+          }, 0);
+
+          return {
+            id: typeName,
+            name: typeName,
+            userCount: totalUsers,
+            branchCount: Object.keys(branches).length
+          };
+        });
+
         setExpandedDepartments([...expandedDepartments, {
           ...department,
-          divisions: result.data
+          divisions: types
         }]);
       } else {
-        console.error('Failed to fetch division details:', result.message);
-        setErrors({ fetch: 'Failed to load division details' });
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/user?division=${department.id}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const result = await response.json();
+
+        if (result.error === false) {
+          setExpandedDepartments([...expandedDepartments, {
+            ...department,
+            divisions: result.data
+          }]);
+        } else {
+          console.error('Failed to fetch division details:', result.message);
+          setErrors({ fetch: 'Failed to load division details' });
+        }
       }
+    } catch (error) {
+      console.error('Network error while fetching details:', error);
+      setErrors({ fetch: 'Network error while loading details' });
     }
-  } catch (error) {
-    console.error('Network error while fetching details:', error);
-    setErrors({ fetch: 'Network error while loading details' });
-  }
-};
+  };
   // Handle division group row changes
   const handleDivisionGroupRowChange = (groupIndex, rowIndex, field, value) => {
     const updatedGroups = [...divisionGroups];
@@ -617,277 +636,277 @@ if (currentUserRole === 'rcs-admin') {
 
   // Validate form based on current user role
   // Validate form based on current user role
-const validateForm = () => {
-  const newErrors = {};
-
-  if (currentUserRole === 'department') {
-    // For department role, validate divisionGroups instead of formData
-    if (divisionGroups.length === 0) {
-      newErrors.general = 'Please create at least one branch type before submitting.';
-    }
-    
-    // Check if any branch type has branches
-    const hasBranches = divisionGroups.some(group => group.details && group.details.length > 0);
-    if (!hasBranches) {
-      newErrors.general = 'Please add at least one branch to your branch types before submitting.';
-    }
-    
-    return newErrors; // Skip all other validation for department
-  }
-
-  // Original validation for other roles
-  if (!formData.name.trim()) newErrors.name = `${labels.nameLabel} is required`;
-
-  if (!formData.username.trim()) newErrors.username = 'Username is required';
-  if (!formData.password.trim()) newErrors.password = 'Password is required';
-
-  if (!formData.mobile.trim()) {
-    newErrors.mobile = 'Mobile number is required';
-  } else if (!/^\d{10}$/.test(formData.mobile)) {
-    newErrors.mobile = 'Mobile number must be 10 digits';
-  }
-
-  return newErrors;
-};
-
-const getBranchCountForType = async (typeName) => {
-  try {
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/user`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const result = await response.json();
-    
-    if (result.error === false && result.data && result.data[typeName]) {
-      // Count how many branches (keys) exist under this type
-      return Object.keys(result.data[typeName]).length;
-    }
-    return 0;
-  } catch (error) {
-    console.error('Error fetching branch count:', error);
-    return 0;
-  }
-};
-const handleSubmit = async (e) => {
-  e.preventDefault();
-
-  // Get parent ID from localStorage
-  const getUserParentId = () => {
-    const userInfo = localStorage.getItem('user');
-    console.log('Raw user info from localStorage:', userInfo);
-    
-    if (userInfo) {
-      try {
-        const parsed = JSON.parse(userInfo);
-        console.log('Parsed user info:', parsed);
-        console.log('User ID found:', parsed.id);
-        
-        if (!parsed.id) {
-          console.error('User ID is missing from localStorage!');
-        }
-        
-        return parsed.id || null;
-      } catch (error) {
-        console.error('Error parsing user info for parent ID:', error);
-      }
-    } else {
-      console.error('No user info found in localStorage!');
-    }
-    return null;
-  };
-
-  const formErrors = validateForm();
-  if (Object.keys(formErrors).length > 0) {
-    setErrors(formErrors);
-    return;
-  }
-
-  setIsSubmitting(true);
-  setErrors({});
-
-  try {
-    const token = localStorage.getItem('authToken');
-    const targetRole = getTargetRole();
-
-    console.log('Current user role:', currentUserRole);
-    console.log('Parent ID:', getUserParentId());
+  const validateForm = () => {
+    const newErrors = {};
 
     if (currentUserRole === 'department') {
-      console.log('Processing department submission...');
-      let successCount = 0;
-      let errors = [];
-
-      // Process each division group (branch type) separately
-      for (const group of divisionGroups) {
-        try {
-          console.log('Creating branch type:', group.name);
-          
-          // First create the branch type (division)
-          const branchTypeData = {
-            p_id: getUserParentId(),
-            name: group.name,
-            username: `${group.name.toLowerCase().replace(/\s+/g, '')}@admin`,
-            role: targetRole, // 'division'
-
-          };
-
-          const typeResponse = await fetch(`${API_BASE_URL}/user`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(branchTypeData)
-          });
-
-          const typeResult = await typeResponse.json();
-          console.log('Branch type creation response:', typeResult);
-
-          if (typeResponse.ok && typeResult.error === false) {
-            successCount++;
-            const createdTypeId = typeResult.data?.id;
-            console.log('Branch type created successfully, ID:', createdTypeId);
-            
-            // Now create each branch under this type
-            if (group.details && group.details.length > 0) {
-              for (const branch of group.details) {
-                try {
-                  console.log('Creating branch:', branch.name, 'under type:', group.name);
-                  
-                  const branchData = {
-                    p_id: createdTypeId, // Use the created division ID as parent
-                    name: branch.name,
-                    username: `${branch.suffix}@${group.name.toLowerCase().replace(/\s+/g, '')}`,
-                    role: 'accounts',
-                    mobile: branch.contact || '0000000000',
-                    address: branch.district || ''
-                  };
-
-                  const branchResponse = await fetch(`${API_BASE_URL}/user`, {
-                    method: 'POST',
-                    headers: {
-                      'Authorization': `Bearer ${token}`,
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(branchData)
-                  });
-
-                  const branchResult = await branchResponse.json();
-                  console.log('Branch creation response:', branchResult);
-
-                  if (branchResponse.ok && branchResult.error === false) {
-                    successCount++;
-                    console.log('Branch created successfully');
-                  } else {
-                    errors.push(`Failed to create branch ${branch.name}: ${parseApiError(branchResult)}`);
-                  }
-                } catch (error) {
-                  errors.push(`Network error creating branch ${branch.name}: ${error.message}`);
-                }
-              }
-            }
-          } else {
-            errors.push(`Failed to create branch type ${group.name}: ${parseApiError(typeResult)}`);
-          }
-        } catch (error) {
-          errors.push(`Network error creating branch type ${group.name}: ${error.message}`);
-        }
+      // For department role, validate divisionGroups instead of formData
+      if (divisionGroups.length === 0) {
+        newErrors.general = 'Please create at least one branch type before submitting.';
       }
 
-      // Handle results
-      if (successCount > 0) {
-        setSubmitSuccess(true);
-        
-        // Reset form
-        setFormData({
-          p_id: null,
-          name: '',
-          username: '',
-          password: '',
-          role: '',
-          mobile: '',
-          count: '',
-        });
-        setDivisionRows([]);
-        setDivisionGroups([]);
-
-        // Refresh users list
-        await fetchUsers();
-
-        // Hide success message after 3 seconds
-        setTimeout(() => {
-          setSubmitSuccess(false);
-        }, 3000);
+      // Check if any branch type has branches
+      const hasBranches = divisionGroups.some(group => group.details && group.details.length > 0);
+      if (!hasBranches) {
+        newErrors.general = 'Please add at least one branch to your branch types before submitting.';
       }
 
-      if (errors.length > 0) {
-        setErrors({ general: `Created ${successCount} items. Errors: ${errors.join(', ')}` });
-      } else if (successCount === 0) {
-        setErrors({ general: 'No branch types found to create.' });
-      }
-    } else {
-      // Original logic for other roles (rcs-admin, division, etc.)
-      const submitData = {
-        ...formData,
-        username: `${formData.username}@${formData.name.toLowerCase().replace(/\s+/g, '')}`,
-        role: targetRole,
-        p_id: getUserParentId()
-      };
+      return newErrors; // Skip all other validation for department
+    }
 
-      console.log('Creating entity with data:', submitData);
-      console.log('Current user role:', currentUserRole);
-      console.log('Parent ID being sent:', submitData.p_id);
+    // Original validation for other roles
+    if (!formData.name.trim()) newErrors.name = `${labels.nameLabel} is required`;
 
+    if (!formData.username.trim()) newErrors.username = 'Username is required';
+    if (!formData.password.trim()) newErrors.password = 'Password is required';
+
+    if (!formData.mobile.trim()) {
+      newErrors.mobile = 'Mobile number is required';
+    } else if (!/^\d{10}$/.test(formData.mobile)) {
+      newErrors.mobile = 'Mobile number must be 10 digits';
+    }
+
+    return newErrors;
+  };
+
+  const getBranchCountForType = async (typeName) => {
+    try {
+      const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_BASE_URL}/user`, {
-        method: 'POST',
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(submitData)
       });
 
       const result = await response.json();
 
-      if (response.ok && result.error === false) {
-        setSubmitSuccess(true);
+      if (result.error === false && result.data && result.data[typeName]) {
+        // Count how many branches (keys) exist under this type
+        return Object.keys(result.data[typeName]).length;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Error fetching branch count:', error);
+      return 0;
+    }
+  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-        // Reset form
-        setFormData({
-          p_id: null,
-          name: '',
-          username: '',
-          password: '',
-          role: '',
-          mobile: '',
-          count: '',
+    // Get parent ID from localStorage
+    const getUserParentId = () => {
+      const userInfo = localStorage.getItem('user');
+      console.log('Raw user info from localStorage:', userInfo);
+
+      if (userInfo) {
+        try {
+          const parsed = JSON.parse(userInfo);
+          console.log('Parsed user info:', parsed);
+          console.log('User ID found:', parsed.id);
+
+          if (!parsed.id) {
+            console.error('User ID is missing from localStorage!');
+          }
+
+          return parsed.id || null;
+        } catch (error) {
+          console.error('Error parsing user info for parent ID:', error);
+        }
+      } else {
+        console.error('No user info found in localStorage!');
+      }
+      return null;
+    };
+
+    const formErrors = validateForm();
+    if (Object.keys(formErrors).length > 0) {
+      setErrors(formErrors);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrors({});
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const targetRole = getTargetRole();
+
+      console.log('Current user role:', currentUserRole);
+      console.log('Parent ID:', getUserParentId());
+
+      if (currentUserRole === 'department') {
+        console.log('Processing department submission...');
+        let successCount = 0;
+        let errors = [];
+
+        // Process each division group (branch type) separately
+        for (const group of divisionGroups) {
+          try {
+            console.log('Creating branch type:', group.name);
+
+            // First create the branch type (division)
+            const branchTypeData = {
+              p_id: getUserParentId(),
+              name: group.name,
+              username: `${group.name.toLowerCase().replace(/\s+/g, '')}@admin`,
+              role: targetRole, // 'division'
+
+            };
+
+            const typeResponse = await fetch(`${API_BASE_URL}/user`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(branchTypeData)
+            });
+
+            const typeResult = await typeResponse.json();
+            console.log('Branch type creation response:', typeResult);
+
+            if (typeResponse.ok && typeResult.error === false) {
+              successCount++;
+              const createdTypeId = typeResult.data?.id;
+              console.log('Branch type created successfully, ID:', createdTypeId);
+
+              // Now create each branch under this type
+              if (group.details && group.details.length > 0) {
+                for (const branch of group.details) {
+                  try {
+                    console.log('Creating branch:', branch.name, 'under type:', group.name);
+
+                    const branchData = {
+                      p_id: createdTypeId, // Use the created division ID as parent
+                      name: branch.name,
+                      username: `${branch.suffix}@${group.name.toLowerCase().replace(/\s+/g, '')}`,
+                      role: 'accounts',
+                      mobile: branch.contact || '0000000000',
+                      address: branch.district || ''
+                    };
+
+                    const branchResponse = await fetch(`${API_BASE_URL}/user`, {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify(branchData)
+                    });
+
+                    const branchResult = await branchResponse.json();
+                    console.log('Branch creation response:', branchResult);
+
+                    if (branchResponse.ok && branchResult.error === false) {
+                      successCount++;
+                      console.log('Branch created successfully');
+                    } else {
+                      errors.push(`Failed to create branch ${branch.name}: ${parseApiError(branchResult)}`);
+                    }
+                  } catch (error) {
+                    errors.push(`Network error creating branch ${branch.name}: ${error.message}`);
+                  }
+                }
+              }
+            } else {
+              errors.push(`Failed to create branch type ${group.name}: ${parseApiError(typeResult)}`);
+            }
+          } catch (error) {
+            errors.push(`Network error creating branch type ${group.name}: ${error.message}`);
+          }
+        }
+
+        // Handle results
+        if (successCount > 0) {
+          setSubmitSuccess(true);
+
+          // Reset form
+          setFormData({
+            p_id: null,
+            name: '',
+            username: '',
+            password: '',
+            role: '',
+            mobile: '',
+            count: '',
+          });
+          setDivisionRows([]);
+          setDivisionGroups([]);
+
+          // Refresh users list
+          await fetchUsers();
+
+          // Hide success message after 3 seconds
+          setTimeout(() => {
+            setSubmitSuccess(false);
+          }, 3000);
+        }
+
+        if (errors.length > 0) {
+          setErrors({ general: `Created ${successCount} items. Errors: ${errors.join(', ')}` });
+        } else if (successCount === 0) {
+          setErrors({ general: 'No branch types found to create.' });
+        }
+      } else {
+        // Original logic for other roles (rcs-admin, division, etc.)
+        const submitData = {
+          ...formData,
+          username: `${formData.username}@${formData.name.toLowerCase().replace(/\s+/g, '')}`,
+          role: targetRole,
+          p_id: getUserParentId()
+        };
+
+        console.log('Creating entity with data:', submitData);
+        console.log('Current user role:', currentUserRole);
+        console.log('Parent ID being sent:', submitData.p_id);
+
+        const response = await fetch(`${API_BASE_URL}/user`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(submitData)
         });
 
-        // Refresh users list
-        await fetchUsers();
+        const result = await response.json();
 
-        // Hide success message after 3 seconds
-        setTimeout(() => {
-          setSubmitSuccess(false);
-        }, 3000);
-      } else {
-        // Enhanced error handling
-        const errorMessage = parseApiError(result);
-        setErrors({ general: errorMessage });
+        if (response.ok && result.error === false) {
+          setSubmitSuccess(true);
+
+          // Reset form
+          setFormData({
+            p_id: null,
+            name: '',
+            username: '',
+            password: '',
+            role: '',
+            mobile: '',
+            count: '',
+          });
+
+          // Refresh users list
+          await fetchUsers();
+
+          // Hide success message after 3 seconds
+          setTimeout(() => {
+            setSubmitSuccess(false);
+          }, 3000);
+        } else {
+          // Enhanced error handling
+          const errorMessage = parseApiError(result);
+          setErrors({ general: errorMessage });
+        }
       }
+    } catch (error) {
+      console.error('Network error:', error);
+      setErrors({ general: 'Network error. Please check your connection and try again.' });
+    } finally {
+      setIsSubmitting(false);
     }
-  } catch (error) {
-    console.error('Network error:', error);
-    setErrors({ general: 'Network error. Please check your connection and try again.' });
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
   // Handle create button click
   const handleCreateClick = () => {
     setShowForm(true);
@@ -908,66 +927,66 @@ const handleSubmit = async (e) => {
     setDivisionRows([]);
     setErrors({});
   };
-const handleSaveBranchUsers = async () => {
-  try {
-    const token = localStorage.getItem('authToken');
-    const userInfo = JSON.parse(localStorage.getItem('user'));
-    
-    // Get the current branch users for the selected branch type
-    const currentUsers = branchUsers[selectedBranchForUser] || [];
-    
-    if (currentUsers.length === 0) {
-      setErrors({ general: 'No users to save' });
-      return;
+  const handleSaveBranchUsers = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const userInfo = JSON.parse(localStorage.getItem('user'));
+
+      // Get the current branch users for the selected branch type
+      const currentUsers = branchUsers[selectedBranchForUser] || [];
+
+      if (currentUsers.length === 0) {
+        setErrors({ general: 'No users to save' });
+        return;
+      }
+
+      // Prepare all users data for single API call
+      const usersData = currentUsers.map(user => ({
+        p_id: userInfo.id, // Current user ID as parent
+        name: user.name,
+        username: `${user.name}@${selectedBranchForUser.toLowerCase().replace(/\s+/g, '')}`,
+        role: 'Department', // or whatever role is appropriate
+        branch_type: selectedBranchForUser,
+        branch: user.branch || selectedBranchForUser
+      }));
+
+      // Single API call with all users
+      const response = await fetch(`${API_BASE_URL}/user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ users: usersData })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.error === false) {
+        setSubmitSuccess(true);
+
+        // Refresh the data
+        await fetchUsers();
+        await fetchBranchDetails();
+
+        // Close the form
+        setIsAddingBranchUsers(false);
+
+        console.log(`${usersData.length} users created successfully`);
+
+        // Show success message
+        setTimeout(() => {
+          setSubmitSuccess(false);
+        }, 3000);
+      } else {
+        setErrors({ general: `Failed to create users: ${parseApiError(result)}` });
+      }
+
+    } catch (error) {
+      console.error('Error saving branch users:', error);
+      setErrors({ general: 'Network error while saving users. Please try again.' });
     }
-
-    // Prepare all users data for single API call
-    const usersData = currentUsers.map(user => ({
-      p_id: userInfo.id, // Current user ID as parent
-      name: user.name,
-      username: `${user.name}@${selectedBranchForUser.toLowerCase().replace(/\s+/g, '')}`,
-      role: 'Department', // or whatever role is appropriate
-      branch_type: selectedBranchForUser,
-      branch: user.branch || selectedBranchForUser
-    }));
-
-    // Single API call with all users
-    const response = await fetch(`${API_BASE_URL}/user`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ users: usersData })
-    });
-
-    const result = await response.json();
-
-    if (response.ok && result.error === false) {
-      setSubmitSuccess(true);
-      
-      // Refresh the data
-      await fetchUsers();
-      await fetchBranchDetails();
-      
-      // Close the form
-      setIsAddingBranchUsers(false);
-      
-      console.log(`${usersData.length} users created successfully`);
-      
-      // Show success message
-      setTimeout(() => {
-        setSubmitSuccess(false);
-      }, 3000);
-    } else {
-      setErrors({ general: `Failed to create users: ${parseApiError(result)}` });
-    }
-
-  } catch (error) {
-    console.error('Error saving branch users:', error);
-    setErrors({ general: 'Network error while saving users. Please try again.' });
-  }
-};
+  };
   // Handle user form submission for add user to department modal
   const handleUserFormSubmit = async (e) => {
     e.preventDefault();
@@ -1054,8 +1073,8 @@ const handleSaveBranchUsers = async () => {
   };
 
   return (
-<div className="bg-gray-50 min-h-screen py-2 sm:py-4 md:py-6 px-2 sm:px-4 lg:px-8">
-  <div className="max-w-full sm:max-w-7xl mx-auto">
+    <div className="bg-gray-50 min-h-screen py-2 sm:py-4 md:py-6 px-2 sm:px-4 lg:px-8">
+      <div className="max-w-full sm:max-w-7xl mx-auto">
 
         {/* Header */}
         <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -1073,7 +1092,7 @@ const handleSaveBranchUsers = async () => {
           </div>
         )}
 
-  
+
         {currentUserRole === 'department' ? (
           <div className="bg-white shadow-xl rounded-2xl overflow-hidden">
             <div className="px-4 py-3 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100">
@@ -1081,7 +1100,7 @@ const handleSaveBranchUsers = async () => {
             </div>
 
             <div className="p-4">
-       
+
 
               {/* Two Column Layout */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1089,253 +1108,176 @@ const handleSaveBranchUsers = async () => {
                 {/* Left: Branches Types Form */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-<h3 className="text-sm font-semibold text-gray-800">Created Types ({divisionGroups.length})</h3>
-           
+                    <h3 className="text-sm font-semibold text-gray-800">Created Types ({divisionGroups.length})</h3>
+
                   </div>
 
                   <div className="space-y-2">
-{divisionGroups.length > 0 ? (
-  divisionGroups.map((division) => (
-<div key={division.id} className="bg-gradient-to-r border border-black-200 rounded-lg p-2 mb-2">
-  <div className="flex items-center justify-between">
-    <div>
-      <h4 className="text-sm font-medium">{division.name}</h4>
-    </div>
+                    {divisionGroups.length > 0 ? (
+                      divisionGroups.map((division) => (
+                        <div key={division.id} className="bg-gradient-to-r border border-black-200 rounded-lg p-2 mb-2">
+                          <div className="flex items-center justify-between">
+
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-semibold uppercase">
+                                {division.name?.[0] || '?'}
+                              </div>
+                              <div className="text-sm font-semibold text-gray-800">{division.name}</div>
+                            </div>
 
                             <div className="flex items-center space-x-2">
-<button
-  onClick={async () => {
-    if (expandedBranchId === division.id) {
-      setExpandedBranchId(null);
-    } else {
-      setExpandedBranchId(division.id);
-    }
-  }}
-  className="text-xs font-semibold text-red-600 underline hover:text-red-800 transition"
->
-  Branches ({division.details ? division.details.length : 0})
-</button>
+                              <button
+                                onClick={async () => {
+                                  if (expandedBranchId === division.id) {
+                                    setExpandedBranchId(null);
+                                  } else {
+                                    setExpandedBranchId(division.id);
+                                  }
+                                }}
+                                className="px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 hover:bg-green-200 transition"
+                              >
+                                Branches ({division.details ? division.details.length : 0})
+                              </button>
                               {/* +Branch button */}
-                         <button
-onClick={() => {
-  // Generate initial suffix when branch type is selected
-  const initialSuffix = generateUsernameSuffix(division.name, '');
-  
-  setShowAddUserForm(true);
-  setSelectedBranchForUser(division.name);
-  setAddUserForm({ 
-    name: '', 
-    district: '', 
-    contact: '', 
-    address: '', 
-    suffix: initialSuffix 
-  });
-}}
-                                className="text-xs text-sky-700 hover:text-blue-800 px-2 py-1 border border-sky-200 rounded-md transition-colors"
+                              <button
+                                onClick={() => {
+                                  // Generate initial suffix when branch type is selected
+                                  const initialSuffix = generateUsernameSuffix(division.name, '');
+
+                                  setShowAddUserForm(true);
+                                  setSelectedBranchForUser(division.name);
+                                  setAddUserForm({
+                                    name: '',
+                                    district: '',
+                                    location: '',
+                                    contact: '',
+                                    address: '',
+
+                                    suffix: initialSuffix
+                                  });
+                                }}
+                                className="px-3 py-1 text-xs font-medium rounded-full bg-sky-100 text-sky-700 hover:bg-sky-200 transition"
                               >
                                 + Branch
                               </button>
                               {/* +Users button */}
-                              <button
-onClick={() => {
-  setSelectedBranchForUser(division.name);
-  setSelectedUser(null);
-  setShowAddUserForm(false);
-  setIsAddingBranchUsers(true);
+                              {/* <button
+                                onClick={() => {
+                                  setSelectedBranchForUser(division.name);
+                                  setSelectedUser(null);
+                                  setShowAddUserForm(false);
+                                  setIsAddingBranchUsers(true);
 
-  // Initialize users for this specific branch if not exists
-// In the +Users button onClick handler, update this part:
-if (!branchUsers[division.name]) {
-  setBranchUsers(prev => ({
-    ...prev,
-    [division.name]: [
-      { name: 'Indent_raiser', branch: division.name, mobile: '', password: '' },
-      { name: 'Supply_confirmationer', branch: division.name, mobile: '', password: '' },
-      { name: 'Payment_approver', branch: division.name, mobile: '', password: '' },
-    ]
-  }));
-}
-}}
-                                className="text-xs text-indigo-700 hover:text-indigo-800 px-2 py-1 border border-indigo-200 rounded-md transition-colors"
+                                  // Initialize users for this specific branch if not exists
+                                  // In the +Users button onClick handler, update this part:
+                                  if (!branchUsers[division.name]) {
+                                    setBranchUsers(prev => ({
+                                      ...prev,
+                                      [division.name]: [
+                                        { name: 'Indent_raiser', branch: division.name, mobile: '', password: '' },
+                                        { name: 'Supply_confirmationer', branch: division.name, mobile: '', password: '' },
+                                        { name: 'Payment_approver', branch: division.name, mobile: '', password: '' },
+                                      ]
+                                    }));
+                                  }
+                                }}
+                                className="px-3 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition"
                               >
-+ Users ({division.details?.reduce((total, branch) => total + (branch.users?.length || 0), 0) || 0})
-                              </button>
+                                + Users ({division.details?.reduce((total, branch) => total + (branch.users?.length || 0), 0) || 0})
+                              </button> */}
 
 
 
                             </div>
                           </div>
 
-{expandedBranchId === division.id && (
-  <div className="mt-3 shadow-sm p-3 text-sm relative space-y-2">
-    {division.details && division.details.length > 0 ? (
-      division.details.map((branchItem, idx) => (
-<div key={branchItem.id || `${division.name}-${idx}`}>
-          <div className="flex justify-between items-center p-3 rounded-md border bg-gray-50 hover:shadow-sm transition">
-            <div className="flex-1">
-              <div className="text-sm font-semibold text-gray-800">
-                {branchItem.name} {/* This shows "Chennai" */}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setSelectedUser(branchItem);
-                  setIsEditingUser(false);
-                  setSelectedBranchForUser(division.name);
-                  setOpenBranchForm(branchItem.id);
-                }}
-                className="px-3 py-1.5 text-xs font-semibold text-sky-700 border border-sky-500 rounded hover:bg-sky-50 transition"
-              >
-                View
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedUser(branchItem);
-                  setIsEditingUser(true);
-                  setSelectedBranchForUser(division.name);
-                  setOpenBranchForm(branchItem.id);
-                }}
-                className="px-3 py-1.5 text-xs font-semibold text-white bg-green-600 rounded hover:bg-green-700 transition"
-              >
-                Edit
-              </button>
-            </div>
-          </div>
-          
-          {/* Form appears below this branch when clicked */}
-          {openBranchForm === branchItem.id && selectedUser && (
-   <div className="mt-3 p-4 border rounded shadow bg-white space-y-4 relative">
-              <button
-                className="absolute top-2 right-2 text-gray-500 hover:text-red-600"
-                onClick={() => {
-                  setSelectedUser(null);
-                  setOpenBranchForm(null);
-                }}
-                title="Close"
-              >
-                ✖️
-              </button>
+                          {expandedBranchId === division.id && (
+                            <div className="mt-3 shadow-sm p-3 text-sm relative space-y-2">
+                              {division.details && division.details.length > 0 ? (
+                                division.details.map((branchItem, idx) => (
+                                  <div key={branchItem.id || `${division.name}-${idx}`} className="w-full">
+                                    {/* Row with branch name and Users count */}
+                                    <div className="flex justify-between items-center px-4 py-3 rounded-md border bg-gray-50 hover:shadow-sm transition">
+                                      <div className="text-sm font-semibold text-gray-800">
+                                        {branchItem.name}
+                                      </div>
 
-              <h3 className="text-sm font-bold text-gray-800">
-                {isEditingUser ? 'Edit Branch' : 'Branch Details'}
-              </h3>
+                                      <button
+                                        onClick={() =>
+                                          setExpandedUsers(prev => ({
+                                            ...prev,
+                                            [branchItem.id]: !prev[branchItem.id]
+                                          }))
+                                        }
+                                        className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition"
+                                      >
+                                        Users ({branchItem.users?.length || 0})
+                                      </button>
+                                    </div>
 
-              <div>
-                <label className="text-sm text-gray-700">Name:</label>
-                <input
-                  type="text"
-                  value={selectedUser.name}
-                  readOnly={!isEditingUser}
-                  onChange={(e) =>
-                    setSelectedUser({ ...selectedUser, name: e.target.value })
-                  }
-                  className={`w-full px-3 py-2 border rounded ${isEditingUser ? 'border-gray-300' : 'bg-gray-100'}`}
-                />
-              </div>
+                                    {/* Show users when expanded */}
+                                    {expandedUsers[branchItem.id] && (
+                                      <div className="bg-white rounded-b-md px-5 py-3 ml-4 mt-1">
+                                        {branchItem.users && branchItem.users.length > 0 ? (
+                                          <ul className="divide-y divide-gray-200">
+                                            {branchItem.users.map((user, uIndex) => (
+                                              <li
+                                                key={uIndex}
+                                                className="flex items-center justify-between text-sm text-gray-700 py-2"
+                                              >
+                                                <div className="flex items-center gap-2">
+                                                  <span className="text-xs bg-gray-200 px-2 py-1 rounded-full font-medium text-gray-800">
+                                                    {user.name}
+                                                  </span>
+                                                  <span className="text-xs text-gray-500">@{user.branch}</span>
+                                                </div>
 
-              <div>
-                <label className="text-sm text-gray-700">District:</label>
-                <input
-                  type="text"
-                  value={selectedUser.district}
-                  readOnly={!isEditingUser}
-                  onChange={(e) =>
-                    setSelectedUser({ ...selectedUser, district: e.target.value })
-                  }
-                  className={`w-full px-3 py-2 border rounded ${isEditingUser ? 'border-gray-300' : 'bg-gray-100'}`}
-                />
-              </div>
+                                                <div className="flex gap-2">
+  <button
+    onClick={() => {
+      setSelectedUserEdit(null); // optional: clear edit if open
+      setSelectedUserView(user);
+    }}
+    className="px-2 py-1 text-xs font-medium text-blue-600 border border-blue-200 rounded hover:bg-blue-50 transition"
+  >
+    View
+  </button>
 
-              <div>
-                <label className="text-sm text-gray-700">Contact:</label>
-                <input
-                  type="text"
-                  value={selectedUser.contact}
-                  readOnly={!isEditingUser}
-                  onChange={(e) =>
-                    setSelectedUser({ ...selectedUser, contact: e.target.value })
-                  }
-                  className={`w-full px-3 py-2 border rounded ${isEditingUser ? 'border-gray-300' : 'bg-gray-100'}`}
-                />
-              </div>
+  <button
+    onClick={() => {
+      setSelectedUserView(null); // optional: clear view if open
+      setSelectedUserEdit(user);
+    }}
+    className="px-2 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition"
+  >
+    Edit
+  </button>
+</div>
+                                              </li>
 
-              <div>
-                <label className="text-sm text-gray-700">Suffix:</label>
-                <input
-                  type="text"
-                  value={selectedUser.suffix}
-                  readOnly={!isEditingUser}
-                  onChange={(e) =>
-                    setSelectedUser({ ...selectedUser, suffix: e.target.value })
-                  }
-                  className={`w-full px-3 py-2 border rounded ${isEditingUser ? 'border-gray-300' : 'bg-gray-100'}`}
-                />
-              </div>
 
-              {isEditingUser && (
-                <div className="text-right">
-                  <button
-                    onClick={async () => {
-                      try {
-                        const token = localStorage.getItem('authToken');
-                        const userInfo = JSON.parse(localStorage.getItem('user'));
-                        
-                        const branchData = {
-                          p_id: userInfo.id,
-                          name: selectedUser.name,
-                          branch: selectedUser.name,
-                          contact: selectedUser.contact || '0000000000',
-                          location: selectedUser.district || '',
-                          address: selectedUser.address || '',
-                          suffix: selectedUser.suffix,
-                          branch_type: selectedBranchForUser
-                        };
+                                            ))}
+                                          </ul>
+                                        ) : (
+                                          <div className="text-xs italic text-gray-400">No users</div>
+                                        )}
+                                      </div>
+                                    )}
 
-                        const branchResponse = await fetch(`${API_BASE_URL}/user/division`, {
-                          method: 'POST',
-                          headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify(branchData)
-                        });
+                                  </div>
 
-                        const branchResult = await branchResponse.json();
-                        
-                        if (branchResponse.ok && branchResult.error === false) {
-                          await fetchUsers();
-                          await fetchBranchDetails();
-                          setSelectedUser(null);
-                          setOpenBranchForm(null);
-                          setSubmitSuccess(true);
-                          setTimeout(() => {
-                            setSubmitSuccess(false);
-                          }, 3000);
-                        } else {
-                          setErrors({ general: `Failed to update branch: ${branchResult.message}` });
-                        }
-                      } catch (error) {
-                        setErrors({ general: 'Network error updating branch' });
-                      }
-                    }}
-                    className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700"
-                  >
-                    Save
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      ))
-    ) : (
-      <div className="text-center text-gray-500 text-sm py-4">
-        No branches found for this type
-      </div>
-    )}
-  </div>
-)}
+
+                                ))
+                              ) : (
+                                <div className="text-center text-gray-500 text-sm py-4">
+                                  No branches found for this type
+                                </div>
+                              )}
+                            </div>
+
+                          )}
+
+
                         </div>
                       ))
                     ) : (
@@ -1346,7 +1288,243 @@ if (!branchUsers[division.name]) {
                   </div>
                 </div>
 
-                {isAddingBranchUsers ? (
+
+              {/* RIGHT PANEL STARTS */}
+            {selectedUserView && (
+  <div className="bg-white border border-gray-200 rounded-xl shadow-md p-6 space-y-4">
+    <div className="flex items-center justify-between">
+      <h3 className="text-lg font-semibold text-sky-800">User Profile</h3>
+      <button
+        className="text-sm text-red-500 hover:text-red-700 font-medium"
+        onClick={() => setSelectedUserView(null)}
+      >
+        ✖
+      </button>
+    </div>
+
+    <div className="divide-y divide-gray-100">
+      {[
+        { label: 'Full Name', value: selectedUserView.name },
+        { label: 'Username', value: selectedUserView.username },
+        { label: 'Branch', value: selectedUserView.branch },
+        { label: 'Contact', value: selectedUserView.contact },
+        { label: 'District', value: selectedUserView.district },
+      ].map(
+        (item, index) =>
+          item.value && (
+            <div key={index} className="grid grid-cols-3 gap-4 py-2 items-center">
+              <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+                {item.label}
+              </div>
+              <div className="col-span-2 text-sm text-gray-800 pl-2">
+                {item.value}
+              </div>
+            </div>
+          )
+      )}
+    </div>
+  </div>
+)}
+
+
+{selectedUserEdit && (
+  <div className="border border-gray-300 rounded-lg p-4 bg-white shadow-sm w-full max-w-sm space-y-3 relative">
+    
+    {/* Header with Close Button */}
+    <div className="flex justify-between items-center mb-1">
+      <h3 className="text-sm font-semibold text-gray-800">Reset Password</h3>
+      <button
+        onClick={() => setSelectedUserEdit(null)}
+        className="text-gray-500 hover:text-red-500 text-sm font-bold"
+        title="Close"
+      >
+        ✖
+      </button>
+    </div>
+
+    {/* Password Input */}
+    <div className="flex items-center space-x-2">
+      <label className="text-sm text-gray-700 whitespace-nowrap">Password:</label>
+      <input
+        type="password"
+        value={selectedUserEdit.password || ''}
+        onChange={(e) => setSelectedUserEdit({ ...selectedUserEdit, password: e.target.value })}
+        className="border border-black px-2 py-1 text-sm rounded w-44"
+      />
+    </div>
+
+    {/* Save / Cancel Buttons */}
+    <div className="flex justify-end space-x-2 pt-2">
+      <button
+        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+        onClick={() => {
+          console.log('Resetting password to:', selectedUserEdit.password);
+        }}
+      >
+        Save
+      </button>
+      <button
+        className="px-3 py-1 bg-gray-100 text-sm text-gray-700 rounded hover:bg-gray-200"
+        onClick={() => setSelectedUserEdit(null)}
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+)}
+
+
+
+
+
+
+
+                {selectedUser && openBranchForm ? (
+                  /* Branch Form Panel - Replaces Create Type section */
+                  <div className="bg-white shadow-lg rounded-xl p-4 border border-gray-200 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-gray-800">
+                        {isEditingUser ? 'Edit Branch' : 'Branch Details'}
+                      </h3>
+                      <button
+                        className="text-gray-500 hover:text-red-600"
+                        onClick={() => {
+                          setSelectedUser(null);
+                          setOpenBranchForm(null);
+                        }}
+                        title="Close"
+                      >
+                        ✖️
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-700">Full Name:</label>
+                      <input
+                        type="text"
+                        value={selectedUser.name}
+                        readOnly={!isEditingUser}
+                        onChange={(e) => setSelectedUser({ ...selectedUser, name: e.target.value })}
+                        className={`w-full px-3 py-2 border rounded ${isEditingUser ? 'border-gray-300' : 'bg-gray-100'}`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-700">District:</label>
+                      <input
+                        type="text"
+                        value={selectedUser.district}
+                        readOnly={!isEditingUser}
+                        onChange={(e) => setSelectedUser({ ...selectedUser, district: e.target.value })}
+                        className={`w-full px-3 py-2 border rounded ${isEditingUser ? 'border-gray-300' : 'bg-gray-100'}`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-700">Location:</label>
+                      <input
+                        type="text"
+                        value={selectedUser.location}
+                        readOnly={!isEditingUser}
+                        onChange={(e) => setSelectedUser({ ...selectedUser, location: e.target.value })}
+                        className={`w-full px-3 py-2 border rounded ${isEditingUser ? 'border-gray-300' : 'bg-gray-100'}`}
+                        placeholder="City/Area/Village/Town"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-700">Admin Contact number:</label>
+                      <input
+                        type="text"
+                        value={selectedUser.contact}
+                        readOnly={!isEditingUser}
+                        onChange={(e) => setSelectedUser({ ...selectedUser, contact: e.target.value })}
+                        className={`w-full px-3 py-2 border rounded ${isEditingUser ? 'border-gray-300' : 'bg-gray-100'}`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-700">Full Address:</label>
+                      <input
+                        type="text"
+                        value={selectedUser.address}
+                        readOnly={!isEditingUser}
+                        onChange={(e) => setSelectedUser({ ...selectedUser, address: e.target.value })}
+                        className={`w-full px-3 py-2 border rounded ${isEditingUser ? 'border-gray-300' : 'bg-gray-100'}`}
+                        placeholder="Enter branch address"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-700 block mb-1">Username Suffix:</label>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium text-gray-700">&lt;username&gt;@</span>
+                        <input
+                          type="text"
+                          value={selectedUser.suffix}
+                          readOnly={!isEditingUser}
+                          onChange={(e) => setSelectedUser({ ...selectedUser, suffix: e.target.value })}
+                          className={`w-48 px-3 py-2 border rounded text-sm ${isEditingUser ? 'border-gray-300' : 'bg-gray-100'}`}
+                          placeholder="Auto-generated (editable)"
+                        />
+                      </div>
+                    </div>
+
+                    {isEditingUser && (
+                      <div className="text-right">
+                        <button
+                          onClick={async () => {
+                            try {
+                              const token = localStorage.getItem('authToken');
+                              const userInfo = JSON.parse(localStorage.getItem('user'));
+
+                              const branchData = {
+                                p_id: userInfo.id,
+                                name: selectedUser.name,
+                                branch: selectedUser.name,
+                                contact: selectedUser.contact || '0000000000',
+                                district: selectedUser.district || '',
+                                location: selectedUser.location || '',
+                                address: selectedUser.address || '',
+                                suffix: selectedUser.suffix,
+                                branch_type: selectedBranchForUser
+                              };
+
+                              const branchResponse = await fetch(`${API_BASE_URL}/user/division`, {
+                                method: 'POST',
+                                headers: {
+                                  'Authorization': `Bearer ${token}`,
+                                  'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify(branchData)
+                              });
+
+                              const branchResult = await branchResponse.json();
+
+                              if (branchResponse.ok && branchResult.error === false) {
+                                await fetchUsers();
+                                await fetchBranchDetails();
+                                setSelectedUser(null);
+                                setOpenBranchForm(null);
+                                setSubmitSuccess(true);
+                                setTimeout(() => {
+                                  setSubmitSuccess(false);
+                                }, 3000);
+                              } else {
+                                setErrors({ general: `Failed to update branch: ${branchResult.message}` });
+                              }
+                            } catch (error) {
+                              setErrors({ general: 'Network error updating branch' });
+                            }
+                          }}
+                          className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : isAddingBranchUsers ? (
                   <div className="bg-white shadow-lg rounded-xl p-4 border border-gray-200 space-y-4 max-w-lg">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-semibold text-gray-800">Branch Users</h3>
@@ -1360,32 +1538,31 @@ if (!branchUsers[division.name]) {
                     </div>
 
                     {/* Initial Editable Users */}
-           {/* Initial Editable Users */}
-{(branchUsers[selectedBranchForUser] || []).map((user, index) => (
+                    {(branchUsers[selectedBranchForUser] || []).map((user, index) => (
                       <div key={index} className="flex items-center gap-2 mb-1">
                         <input
                           type="text"
                           value={user.name}
-                    onChange={(e) => {
-  setBranchUsers(prev => ({
-    ...prev,
-    [selectedBranchForUser]: prev[selectedBranchForUser].map((user, i) => 
-      i === index ? { ...user, name: e.target.value } : user
-    )
-  }));
-}}
+                          onChange={(e) => {
+                            setBranchUsers(prev => ({
+                              ...prev,
+                              [selectedBranchForUser]: prev[selectedBranchForUser].map((user, i) =>
+                                i === index ? { ...user, name: e.target.value } : user
+                              )
+                            }));
+                          }}
                           className="w-48 px-3 py-2 border border-gray-300 rounded text-sm"
                         />
                         <span className="text-sm text-gray-700 font-medium">@&lt;branchname&gt;</span>
 
                         {index >= 3 && (
                           <button
-                     onClick={() => {
-  setBranchUsers(prev => ({
-    ...prev,
-    [selectedBranchForUser]: prev[selectedBranchForUser].filter((_, i) => i !== index)
-  }));
-}}
+                            onClick={() => {
+                              setBranchUsers(prev => ({
+                                ...prev,
+                                [selectedBranchForUser]: prev[selectedBranchForUser].filter((_, i) => i !== index)
+                              }));
+                            }}
                             className="px-2 py-1 text-xs text-white bg-red-600 rounded hover:bg-red-700 transition"
                           >
                             Delete
@@ -1394,59 +1571,55 @@ if (!branchUsers[division.name]) {
                       </div>
                     ))}
 
+                    {/* Add New User */}
+                    {showNewUserField ? (
+                      <div className="flex items-center gap-2 mt-2">
+                        <input
+                          type="text"
+                          value={newUserName}
+                          onChange={(e) => setNewUserName(e.target.value)}
+                          className="w-48 px-3 py-2 border border-gray-800 rounded text-sm"
+                          placeholder="Enter name"
+                        />
+                        <span className="text-sm font-medium text-gray-700">@&lt;branchname&gt;</span>
+                        <button
+                          onClick={() => {
+                            if (newUserName.trim()) {
+                              const formattedName = newUserName.trim().toLowerCase().replace(/\s+/g, '_');
+                              setBranchUsers(prev => ({
+                                ...prev,
+                                [selectedBranchForUser]: [...(prev[selectedBranchForUser] || []), { name: formattedName, branch: selectedBranchForUser }]
+                              }));
+                              setNewUserName('');
+                              setShowNewUserField(false);
+                            }
+                          }}
+                          className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setShowNewUserField(true)}
+                        className="px-3 py-1 bg-sky-600 text-white rounded text-xs hover:bg-sky-700 mt-2"
+                      >
+                        + Add User
+                      </button>
+                    )}
 
-{/* Add New User */}
-{showNewUserField ? (
-  <div className="flex items-center gap-2 mt-2">
-    <input
-      type="text"
-      value={newUserName}
-      onChange={(e) => setNewUserName(e.target.value)}
-      className="w-48 px-3 py-2 border border-gray-800 rounded text-sm"
-      placeholder="Enter name"
-    />
-    <span className="text-sm font-medium text-gray-700">@&lt;branchname&gt;</span>
-    <button
-      onClick={() => {
-        if (newUserName.trim()) {
-          const formattedName = newUserName.trim().toLowerCase().replace(/\s+/g, '_');
-          setBranchUsers(prev => ({
-            ...prev,
-            [selectedBranchForUser]: [...(prev[selectedBranchForUser] || []), { name: formattedName, branch: selectedBranchForUser }]
-          }));
-          setNewUserName('');
-          setShowNewUserField(false); // hide field again after adding
-        }
-      }}
-      className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
-    >
-      Save
-    </button>
-  </div>
-) : (
-  <button
-    onClick={() => setShowNewUserField(true)}
-    className="px-3 py-1 bg-sky-600 text-white rounded text-xs hover:bg-sky-700 mt-2"
-  >
-    + Add User
-  </button>
-)}
-
-
-
-
-{/* Save Button */}
-<div className="text-right pt-3">
-  <button
-    onClick={handleSaveBranchUsers}
-    className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700"
-  >
-    Save Users
-  </button>
-</div>
+                    {/* Save Button */}
+                    <div className="text-right pt-3">
+                      <button
+                        onClick={handleSaveBranchUsers}
+                        className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700"
+                      >
+                        Save Users
+                      </button>
+                    </div>
                   </div>
-
-                ) : !showAddUserForm ? (
+                  
+                ) : (!showAddUserForm && !selectedUserEdit)? (
                   <div className="space-y-3">
                     <h3 className="text-sm font-semibold text-gray-800">Create Type</h3>
                     <div className="flex gap-2 items-start">
@@ -1458,37 +1631,52 @@ if (!branchUsers[division.name]) {
                         className="w-48 px-3 py-2 border border-gray-200 rounded-lg focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none text-sm"
                         placeholder="Create Type"
                       />
-<button
-  type="button"
-onClick={async () => {
-  if (formData.name.trim()) {
-    // Generate initial suffix for the new type
-    const initialSuffix = generateUsernameSuffix(formData.name, '');
-    
-    // Auto-initiate Add Branch form for this new type
-    setShowAddUserForm(true);
-    setSelectedBranchForUser(formData.name);
-    setAddUserForm({ 
-      name: '', 
-      district: '', 
-      contact: '', 
-      address: '', 
-      suffix: initialSuffix 
-    });
-    
-    setFormData({ ...formData, name: '' });
-  }
-}}
-  disabled={!formData.name.trim()}
-  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
->
-  Add
-</button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (formData.name.trim()) {
+                            const initialSuffix = generateUsernameSuffix(formData.name, '');
+                            setShowAddUserForm(true);
+                            setSelectedBranchForUser(formData.name);
+                            setAddUserForm({
+                              name: '',
+                              district: '',
+                              contact: '',
+                              address: '',
+                              suffix: initialSuffix
+                            });
+                            setFormData({ ...formData, name: '' });
+                          }
+                        }}
+                        disabled={!formData.name.trim()}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      >
+                        Add
+                      </button>
                     </div>
                   </div>
                 ) : (
                   <div className="bg-white shadow-lg rounded-xl p-4 border border-gray-200 space-y-4">
-              <h3 className="text-sm font-semibold text-gray-800">Create Branch for {selectedBranchForUser}</h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-800">Create Branch for {selectedBranchForUser}</h3>
+                      <button
+                        className="text-gray-500 hover:text-red-600"
+                        onClick={() => {
+                          setShowAddUserForm(false);
+                          setAddUserForm({
+                            name: '',
+                            district: '',
+                            location: '',
+                            contact: '',
+                            address: '',
+                            suffix: ''
+                          });
+                        }}
+                        title="Close"
+                      >
+                        ✖️
+                      </button>
+                    </div>
                     <div>
                       <label className="text-sm text-gray-700"> Full Name:</label>
                       <input
@@ -1506,116 +1694,121 @@ onClick={async () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded"
                       />
                     </div>
-           <div>
-  <label className="text-sm text-gray-700">District:</label>
-  <input
-    type="text"
-    value={addUserForm.district}
-    onChange={(e) => {
-      const district = e.target.value;
-      const generatedSuffix = generateUsernameSuffix(selectedBranchForUser, district);
-      setAddUserForm({ 
-        ...addUserForm, 
-        district: district,
-        suffix: generatedSuffix
-      });
-    }}
-    className="w-full px-3 py-2 border border-gray-300 rounded"
-  />
-</div>
-              <div>
-  <label className="text-sm text-gray-700">Admin Contact number:</label>
-  <input
-    type="text"
-    value={addUserForm.contact}
-    onChange={(e) => setAddUserForm({ ...addUserForm, contact: e.target.value })}
-    className="w-full px-3 py-2 border border-gray-300 rounded"
-  />
-</div>
-<div>
-  <label className="text-sm text-gray-700"> Full Address:</label>
-  <input
-    type="text"
-    value={addUserForm.address}
-    onChange={(e) => setAddUserForm({ ...addUserForm, address: e.target.value })}
-    className="w-full px-3 py-2 border border-gray-300 rounded"
-    placeholder="Enter branch address"
-  />
-</div>
-<div>
-  <label className="text-sm text-gray-700 block mb-1">Username Suffix:</label>
-  <div className="flex items-center space-x-2">
-    <span className="text-sm font-medium text-gray-700">&lt;username&gt;@</span>
-    <input
-      type="text"
-      value={addUserForm.suffix}
-      onChange={(e) => setAddUserForm({ ...addUserForm, suffix: e.target.value })}
-      className="w-48 px-3 py-2 border border-gray-300 rounded text-sm"
-      placeholder="Auto-generated (editable)"
-    />
-  </div>
-</div>
-<div className="text-right">
-  <button
-onClick={async () => {
-  try {
-    const token = localStorage.getItem('authToken');
-    const userInfo = JSON.parse(localStorage.getItem('user'));
-    
-    // Create the branch directly (no type creation call)
-const branchData = {
-  p_id: userInfo.id, // Use current user ID as parent
-  name: addUserForm.name,
-  branch: addUserForm.name,
-  contact: addUserForm.contact || '0000000000',
-  location: addUserForm.district || '',
-  address: addUserForm.address || '',
-  suffix: addUserForm.suffix, // Include suffix in payload
-  branch_type: selectedBranchForUser // Include the type information
-};
+                    <div>
+                      <label className="text-sm text-gray-700">District:</label>
+                      <input
+                        type="text"
+                        value={addUserForm.district}
+                        onChange={(e) => {
+                          const district = e.target.value;
+                          const generatedSuffix = generateUsernameSuffix(selectedBranchForUser, district);
+                          setAddUserForm({
+                            ...addUserForm,
+                            district: district,
+                            suffix: generatedSuffix
+                          });
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-700">Location:</label>
+                      <input
+                        type="text"
+                        value={addUserForm.location}
+                        onChange={(e) => setAddUserForm({ ...addUserForm, location: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded"
+                        placeholder="Enter specific locality/area"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-700">Admin Contact number:</label>
+                      <input
+                        type="text"
+                        value={addUserForm.contact}
+                        onChange={(e) => setAddUserForm({ ...addUserForm, contact: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-700"> Full Address:</label>
+                      <input
+                        type="text"
+                        value={addUserForm.address}
+                        onChange={(e) => setAddUserForm({ ...addUserForm, address: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded"
+                        placeholder="Enter branch address"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-700 block mb-1">Username Suffix:</label>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium text-gray-700">&lt;username&gt;@</span>
+                        <input
+                          type="text"
+                          value={addUserForm.suffix}
+                          onChange={(e) => setAddUserForm({ ...addUserForm, suffix: e.target.value })}
+                          className="w-48 px-3 py-2 border border-gray-300 rounded text-sm"
+                          placeholder="Auto-generated (editable)"
+                        />
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <button
+                        onClick={async () => {
+                          try {
+                            const token = localStorage.getItem('authToken');
+                            const userInfo = JSON.parse(localStorage.getItem('user'));
 
-    const branchResponse = await fetch(`${API_BASE_URL}/user/division`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(branchData)
-    });
+                            const branchData = {
+                              p_id: userInfo.id,
+                              name: addUserForm.name,
+                              branch: addUserForm.name,
+                              contact: addUserForm.contact || '0000000000',
+                              district: addUserForm.district || '',
+                              location: addUserForm.location || '',
+                              address: addUserForm.address || '',
+                              suffix: addUserForm.suffix,
+                              branch_type: selectedBranchForUser
+                            };
 
-    const branchResult = await branchResponse.json();
-    
-if (branchResponse.ok && branchResult.error === false) {
-  // Refresh data from API
-  await fetchUsers();
-  await fetchBranchDetails();
-  
-  // Clear form fields first
-setAddUserForm({ name: '', district: '', contact: '', address: '', suffix: '' });
-  // Then close the form
-  setShowAddUserForm(false);
-  
-  // Show success message
-  setSubmitSuccess(true);
-  setTimeout(() => {
-    setSubmitSuccess(false);
-  }, 3000);
-}
-    else {
-      setErrors({ general: `Failed to create branch: ${branchResult.message}` });
-    }
-  } catch (error) {
-    setErrors({ general: 'Network error creating branch' });
-  }
-}}
-    className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700"
-  >
-    Save
-  </button>
-</div>
+                            const branchResponse = await fetch(`${API_BASE_URL}/user/division`, {
+                              method: 'POST',
+                              headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify(branchData)
+                            });
+
+                            const branchResult = await branchResponse.json();
+
+                            if (branchResponse.ok && branchResult.error === false) {
+                              await fetchUsers();
+                              await fetchBranchDetails();
+                              setAddUserForm({ name: '', district: '', contact: '', address: '', suffix: '' });
+                              setShowAddUserForm(false);
+                              setSubmitSuccess(true);
+                              setTimeout(() => {
+                                setSubmitSuccess(false);
+                              }, 3000);
+                            }
+                            else {
+                              setErrors({ general: `Failed to create branch: ${branchResult.message}` });
+                            }
+                          } catch (error) {
+                            setErrors({ general: 'Network error creating branch' });
+                          }
+                        }}
+                        className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700"
+                      >
+                        Save
+                      </button>
+                    </div>
                   </div>
                 )}
-</div>
+
+              </div>
 
             </div>
 
@@ -1638,285 +1831,361 @@ setAddUserForm({ name: '', district: '', contact: '', address: '', suffix: '' })
                   </button>
                 )}
               </div>
-{loading ? (
-  <div className="py-8 text-center">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600 mx-auto"></div>
-    <p className="mt-2 text-gray-600 text-sm">Loading...</p>
-  </div>
-) : getDepartments().length > 0 ? (
-<div className="bg-white rounded-lg shadow-sm overflow-hidden">
-  <div className="overflow-x-auto">
-    <table className="w-full min-w-[600px]">
-<thead className="bg-gray-50 border-b">
-  <tr>
-    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-      Department
+              {loading ? (
+                <div className="py-8 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600 mx-auto"></div>
+                  <p className="mt-2 text-gray-600 text-sm">Loading...</p>
+                </div>
+              ) : getDepartments().length > 0 ? (
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[600px]">
+                      <thead className="bg-gray-50 border-b">
+                        <tr>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Department
+                          </th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                            Department Details
+                          </th>
+                            <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+      Username
     </th>
-    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-      Department Details
-    </th>
-    <th className="px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-      Actions
-    </th>
-  </tr>
-</thead>
-      <tbody className="bg-white divide-y divide-gray-200">
-        {getDepartments().map((department) => {
-          const isExpanded = expandedDepartments.find(d => d.id === department.id);
-          
-          return (
-            <React.Fragment key={department.id}>
-              {/* Department Row */}
-          <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => handleDepartmentClick(department)}>
-  <td className="px-2 sm:px-4 py-2 sm:py-3">
-    <div className="flex items-center">
-      <div className="flex-shrink-0 h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center mr-2 sm:mr-3">
-        <span className="text-white font-semibold text-xs">
-          {(() => {
-            const words = department.name?.trim().split(' ') || [];
-            if (words.length === 1) {
-              const name = words[0];
-              return (name.charAt(0) + name.charAt(name.length - 1)).toUpperCase();
-            } else if (words.length >= 2) {
-              return words
-                .slice(0, 2)
-                .map(word => word.charAt(0).toUpperCase())
-                .join('');
-            } else {
-              return 'DE';
-            }
-          })()}
-        </span>
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">{department.name}</div>
-        {/* Show details on mobile below name */}
-        <div className="sm:hidden mt-1">
-          {currentUserRole === 'rcs-admin' ? (
-            <div className="flex flex-wrap gap-1">
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                {department.typeCount} Types
-              </span>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                {department.totalBranches} Branches
-              </span>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                {department.totalUsers} Users
-              </span>
-            </div>
-          ) : (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-              {department.userCount} Users
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  </td>
-  <td className="px-2 sm:px-4 py-2 sm:py-3 hidden sm:table-cell">
-    {currentUserRole === 'rcs-admin' ? (
-      <div className="flex flex-wrap gap-1">
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-          {department.typeCount} Types
-        </span>
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-          {department.totalBranches} Branches
-        </span>
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-          {department.totalUsers} Users
-        </span>
-      </div>
-    ) : (
-      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-        {department.userCount} Users
-      </span>
-    )}
-  </td>
-<td className="px-2 sm:px-4 py-2 sm:py-3 text-sm">
-  <div className="flex items-center justify-center space-x-1 sm:space-x-2">
-    {/* Reset Password Button */}
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        console.log('Reset passwords for department:', department.name);
-      }}
-      className="px-2 py-1 text-xs font-medium text-orange-600 border border-orange-200 rounded hover:bg-orange-50 transition-colors"
-      title="Reset All Passwords"
-    >
-      Reset Password
-    </button>
-    
-    {/* View Profile Button */}
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        console.log('View profile for department:', department.name);
-      }}
-      className="px-2 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition-colors"
-      title="View Department Profile"
-    >
-      View Profile
-    </button>
-    
-    {/* Expand Arrow */}
-    <svg 
-      className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
-      fill="none" 
-      stroke="currentColor" 
-      viewBox="0 0 24 24"
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-    </svg>
-    
-    {/* Add User Button (if applicable) */}
-    {(currentUserRole === 'department' || currentUserRole === 'division') && (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedDepartmentName(department.name);
-          setShowUserFormModal(true);
-          setUserForm({ username: '', password: '', mobile: '' });
-          setUserFormErrors({});
-        }}
-        className="px-2 py-1 text-xs font-medium text-sky-600 border border-sky-200 rounded hover:bg-sky-50 transition-colors"
-        title="Add User"
-      >
-        Add User
-      </button>
-    )}
-  </div>
+                          {!expandedReset && !expandedProfile && (
+                            <th className="px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Actions
+                            </th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {getDepartments().map((department) => {
+                          const isExpanded = expandedDepartments.find(d => d.id === department.id);
+
+                          return (
+                            <React.Fragment key={department.id}>
+                              {/* Department Row */}
+                              <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => handleDepartmentClick(department)}>
+                                <td className="px-2 sm:px-4 py-2 sm:py-3">
+                                  <div className="flex items-center">
+                                    <div className="flex-shrink-0 h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center mr-2 sm:mr-3">
+                                      <span className="text-white font-semibold text-xs">
+                                        {(() => {
+                                          const words = department.name?.trim().split(' ') || [];
+                                          if (words.length === 1) {
+                                            const name = words[0];
+                                            return (name.charAt(0) + name.charAt(name.length - 1)).toUpperCase();
+                                          } else if (words.length >= 2) {
+                                            return words
+                                              .slice(0, 2)
+                                              .map(word => word.charAt(0).toUpperCase())
+                                              .join('');
+                                          } else {
+                                            return 'DE';
+                                          }
+                                        })()}
+                                      </span>
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">{department.name}</div>
+                                      {/* Show details on mobile below name */}
+                                      <div className="sm:hidden mt-1">
+                                        {currentUserRole === 'rcs-admin' ? (
+                                          <div className="flex flex-wrap gap-1">
+                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                              {department.typeCount} Types
+                                            </span>
+                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                              {department.totalBranches} Branches
+                                            </span>
+                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                              {department.totalUsers} Users
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                            {department.userCount} Users
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                                
+                                <td className="px-2 sm:px-4 py-2 sm:py-3 text-sm align-top">
+                                  {currentUserRole === 'rcs-admin' ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        {department.typeCount} Types
+                                      </span>
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        {department.totalBranches} Branches
+                                      </span>
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                        {department.totalUsers} Users
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                      {department.userCount} Users
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-2 sm:px-4 py-2 sm:py-3 text-sm text-gray-800">
+  {department.username || '—'}
 </td>
-</tr>
-              
-              {/* Expanded Divisions Row */}
- {isExpanded && (
-  <tr>
-    <td colSpan="3" className="px-2 sm:px-4 py-2 bg-gray-50">
-                    <div className="space-y-2">
-                  {isExpanded.divisions?.map((division, index) => {
-  const typeKey = `${isExpanded.name}-${division.name}`;
-  const isTypeExpanded = expandedTypes.includes(typeKey);
-  
-  return (
-    <div key={division.id || index} className="border border-gray-200 rounded-lg">
-      {/* Type Header - Clickable */}
-{/* Type Header - Non-clickable */}
-<div 
-  className="flex items-center justify-between p-2 bg-white rounded-t-lg"
->
-        <div className="flex items-center space-x-3">
-          <div className="w-6 h-6 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center">
-            <span className="text-white font-medium text-xs">
-              {currentUserRole === 'rcs-admin' 
-                ? (division.name ? division.name.charAt(0).toUpperCase() : 'T')
-                : (division.username ? division.username.charAt(0).toUpperCase() : division.name ? division.name.charAt(0).toUpperCase() : 'U')
-              }
-            </span>
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <div className="text-sm font-medium text-gray-900">{division.name || division.username}</div>
-              {currentUserRole === 'rcs-admin' && (
-                <div className="flex gap-1">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    {division.branchCount} Branches
-                  </span>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                    {division.userCount} Users
-                  </span>
+                                {(expandedReset === department.name || expandedProfile === department.name) ? (
+                                  <td colSpan={4} className="px-4 py-3 bg-gray-50">
+                                    {expandedReset === department.name && (
+                                      <div className="flex flex-col items-start space-y-2">
+                                        <div className="flex items-center space-x-2">
+                                          <input
+                                            type="password"
+                                            placeholder="Current"
+                                            value={tempPassword}
+                                            onChange={(e) => setTempPassword(e.target.value)}
+                                            className="w-26 px-2 py-1 text-xs border rounded"
+                                          />
+                                          <input
+                                            type="password"
+                                            placeholder="New"
+                                            value={newPassword}
+                                            onChange={(e) => setNewPassword(e.target.value)}
+                                            className="w-26 px-2 py-1 text-xs border rounded"
+                                          />
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              console.log(`Updated password for ${department.name}`);
+                                              setExpandedReset(null);
+                                              setTempPassword('');
+                                              setNewPassword('');
+                                            }}
+                                            className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                                          >
+                                            Save
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setExpandedReset(null);
+                                              setTempPassword('');
+                                              setNewPassword('');
+                                            }}
+                                            className="px-2 py-1 text-xs bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {expandedProfile === department.name && (
+                                      <div className="flex justify-between items-center px-2 py-2 w-full text-xs text-gray-800">
+                                        <div className="flex items-center divide-x divide-gray-300">
+                                          <div className="px-2"><strong>Name:</strong> {department.name}</div>
+                                          <div className="px-2"><strong>Username:</strong> {department.username || 'N/A'}</div>
+                                          <div className="px-2"><strong>Contact:</strong> {department.contact || 'N/A'}</div>
+                                        </div>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedProfile(null);
+                                          }}
+                                          className="ml-2 px-2 py-1 text-xs bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
+                                        >
+                                          Close
+                                        </button>
+                                      </div>
+                                    )}
+                                  </td>
+                                ) : (
+                                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-sm">
+                                    <div className="flex flex-col items-center space-y-1 sm:space-y-2">
+                                      <div className="flex items-center justify-center space-x-1 sm:space-x-2">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedReset(department.name);
+                                            setExpandedProfile(null);
+                                            setTempPassword('');
+                                            setNewPassword('');
+                                          }}
+                                          className="px-2 py-1 text-xs font-medium text-orange-600 border border-orange-200 rounded hover:bg-orange-50 transition-colors"
+                                        >
+                                          Reset Password
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedProfile(department.name);
+                                            setExpandedReset(null);
+                                          }}
+                                          className="px-2 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition-colors"
+                                        >
+                                          View Profile
+                                        </button>
+                                        <svg
+                                          className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 transition-transform"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                        {(currentUserRole === 'department' || currentUserRole === 'division') && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedDepartmentName(department.name);
+                                              setShowUserFormModal(true);
+                                              setUserForm({ username: '', password: '', mobile: '' });
+                                              setUserFormErrors({});
+                                            }}
+                                            className="px-2 py-1 text-xs font-medium text-sky-600 border border-sky-200 rounded hover:bg-sky-50 transition-colors"
+                                          >
+                                            Add User
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </td>
+                                )}
+
+
+
+                              </tr>
+
+                              {/* Expanded Divisions Row */}
+                              {isExpanded && (
+                                <tr>
+                                  <td colSpan="4" className="px-2 sm:px-4 py-2 bg-gray-50">
+                                    <div className="space-y-2">
+                                      {isExpanded.divisions?.map((division, index) => {
+                                        const typeKey = `${isExpanded.name}-${division.name}`;
+                                        const isTypeExpanded = expandedTypes.includes(typeKey);
+
+                                        return (
+                                         <div key={division.id || index} className="border border-gray-200 rounded-lg">
+
+                                            {/* Type Header - Clickable */}
+                                            {/* Type Header - Non-clickable */}
+                                            <div
+                                              className="flex items-center justify-between p-2 bg-white rounded-t-lg"
+                                            >
+                                              <div className="flex items-center space-x-3">
+                                                <div className="w-6 h-6 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center">
+                                                  <span className="text-white font-medium text-xs">
+                                                    {currentUserRole === 'rcs-admin'
+                                                      ? (division.name ? division.name.charAt(0).toUpperCase() : 'T')
+                                                      : (division.username ? division.username.charAt(0).toUpperCase() : division.name ? division.name.charAt(0).toUpperCase() : 'U')
+                                                    }
+                                                  </span>
+                                                </div>
+                                                <div>
+                                                  <div className="flex items-center space-x-2">
+                                                    <div className="text-sm font-medium text-gray-900">{division.name || division.username}</div>
+                                                    {currentUserRole === 'rcs-admin' && (
+                                                      <div className="flex gap-1">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                          {division.branchCount} Branches
+                                                        </span>
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                          {division.userCount} Users
+                                                        </span>
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                  {currentUserRole !== 'rcs-admin' && (
+                                                    <div className="text-xs text-gray-500">{division.role}</div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              <div className="flex items-center space-x-2">
+                                                {division.mobile && (
+                                                  <div className="text-right">
+                                                    <div className="text-sm text-gray-600">{division.mobile}</div>
+                                                  </div>
+                                                )}
+
+                                              </div>
+                                            </div>
+
+                                            {/* Users List - Expandable */}
+                                            {isTypeExpanded && currentUserRole === 'rcs-admin' && (
+                                              <div className="border-t border-gray-200 bg-gray-50 p-3">
+                                                <div className="space-y-2">
+                                                  {/* Get users from the API data structure */}{(() => {
+                                                    const departmentData = users[isExpanded.name] || {};
+                                                    const typeData = departmentData[division.name] || {};
+                                                    const allUsers = [];
+
+                                                    // Collect all users from all branches under this type
+                                                    Object.keys(typeData).forEach(branchKey => {
+                                                      const branchUsers = typeData[branchKey];
+                                                      if (Array.isArray(branchUsers)) {
+                                                        branchUsers.forEach(user => {
+                                                          allUsers.push({
+                                                            ...user,
+                                                            branchName: branchKey || user.branch || user.location || 'Unknown Branch'
+                                                          });
+                                                        });
+                                                      }
+                                                    });
+
+                                                    return allUsers.length > 0 ? (allUsers.map((user, userIndex) => (
+                                                      <div key={`${user.id}-${userIndex}`} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 bg-white rounded border border-gray-100 space-y-2 sm:space-y-0">
+                                                        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                                                          <div className="min-w-0 flex-1">
+                                                            <div className="text-xs sm:text-sm font-medium text-gray-900">
+                                                              <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 mr-1 sm:mr-2">
+                                                                {user.branchName}
+                                                              </span>
+                                                              <span className="break-words">{user.name} | {user.username}</span>
+                                                            </div>
+                                                          </div>
+                                                        </div>
+                                                        <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+                                                          <button className="px-2 sm:px-3 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition-colors">
+                                                            View Profile
+                                                          </button>
+                                                        </div>
+                                                      </div>
+                                                    ))
+                                                    ) : (
+                                                      <div className="text-center text-gray-500 text-sm py-2">
+                                                        No users found in this type
+                                                      </div>
+                                                    );
+                                                  })()}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-8 text-center">
+                  <svg className="mx-auto h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No {labels.entityNamePlural.toLowerCase()} found</h3>
                 </div>
               )}
-            </div>
-            {currentUserRole !== 'rcs-admin' && (
-              <div className="text-xs text-gray-500">{division.role}</div>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          {division.mobile && (
-            <div className="text-right">
-              <div className="text-sm text-gray-600">{division.mobile}</div>
-            </div>
-          )}
-   
-        </div>
-      </div>
-      
-      {/* Users List - Expandable */}
-      {isTypeExpanded && currentUserRole === 'rcs-admin' && (
-        <div className="border-t border-gray-200 bg-gray-50 p-3">
-          <div className="space-y-2">
-            {/* Get users from the API data structure */}{(() => {
-  const departmentData = users[isExpanded.name] || {};
-  const typeData = departmentData[division.name] || {};
-  const allUsers = [];
-  
-  // Collect all users from all branches under this type
-  Object.keys(typeData).forEach(branchKey => {
-    const branchUsers = typeData[branchKey];
-    if (Array.isArray(branchUsers)) {
-      branchUsers.forEach(user => {
-        allUsers.push({
-          ...user,
-          branchName: branchKey || user.branch || user.location || 'Unknown Branch'
-        });
-      });
-    }
-  });
-  
-  return allUsers.length > 0 ? (allUsers.map((user, userIndex) => (
-  <div key={`${user.id}-${userIndex}`} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 bg-white rounded border border-gray-100 space-y-2 sm:space-y-0">
-    <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
-      <div className="min-w-0 flex-1">
-        <div className="text-xs sm:text-sm font-medium text-gray-900">
-          <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 mr-1 sm:mr-2">
-            {user.branchName}
-          </span>
-          <span className="break-words">{user.name} | {user.username}</span>
-        </div>
-      </div>
-    </div>
-<div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-  <button className="px-2 sm:px-3 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition-colors">
-    View Profile
-  </button>
-</div>
-  </div>
-))
-  ) : (
-    <div className="text-center text-gray-500 text-sm py-2">
-      No users found in this type
-    </div>
-  );
-})()}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-})}
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </React.Fragment>
-          );
-        })}
-      </tbody>
-    </table>
-    </div>
-  </div>
-) : (
-  <div className="py-8 text-center">
-    <svg className="mx-auto h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-    </svg>
-    <h3 className="mt-2 text-sm font-medium text-gray-900">No {labels.entityNamePlural.toLowerCase()} found</h3>
-  </div>
-)}
             </div>
 
             <div className={`transition-all duration-500 ease-in-out transform ${showForm

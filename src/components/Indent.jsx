@@ -7,6 +7,8 @@ const IndentCreation = () => {
   ]);
   
   const [segmentOptions, setSegmentOptions] = useState([]);
+  const [inventoryData, setInventoryData] = useState(null);
+  const [indentForDays, setIndentForDays] = useState('');
   const [recentOrders, setRecentOrders] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -14,6 +16,7 @@ const IndentCreation = () => {
   const [error, setError] = useState('');
   const [indentDetails, setIndentDetails] = useState([]);
   const [showIndentDetails, setShowIndentDetails] = useState(false);
+  const [userInfo, setUserInfo] = useState(null);
 
   const [editableDate, setEditableDate] = useState(() => {
     const today = new Date();
@@ -47,6 +50,39 @@ const IndentCreation = () => {
     };
 
     fetchSegments();
+  }, []);
+
+  // Fetch inventory data from API
+  useEffect(() => {
+    const fetchInventory = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/master/inventory`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const result = await response.json();
+        
+        if (response.ok && !result.error) {
+          setInventoryData(result);
+          // Prefill the indent for days with the order value from the first item
+          if (result.data && result.data.length > 0) {
+            setIndentForDays(result.data[0].order.toString());
+          }
+        } else {
+          setError('Failed to fetch inventory');
+        }
+      } catch (err) {
+        setError('Network error while fetching inventory');
+        console.error('Error fetching inventory:', err);
+      }
+    };
+
+    fetchInventory();
   }, []);
 
   // Generate mock recent orders (you can replace this with actual API call)
@@ -122,6 +158,32 @@ const IndentCreation = () => {
     }
   };
 
+  // Handle editable order change
+  const handleEditableOrderChange = (index, newValue) => {
+    const updated = [...indentDetails];
+    updated[index].editableOrder = newValue;
+    setIndentDetails(updated);
+  };
+
+  // Process indent details to add calculated columns
+  const processIndentDetails = (data) => {
+    return data.map(item => {
+      const stock = parseFloat(item.stock) || 0;
+      const buffer = parseFloat(item.buffer) || 0;
+      const required = parseFloat(item.required) || 0;
+      
+      const exDf = stock - buffer;
+      const order = required - exDf;
+      
+      return {
+        ...item,
+        exDf: exDf.toFixed(3),
+        order: order.toFixed(3),
+        editableOrder: order.toFixed(3) // Initialize editable order with calculated value
+      };
+    });
+  };
+
   const handleSave = async () => {
     // Validate that all rows have required data
     const validSegments = segments.filter(seg => seg.segmentId && seg.nos);
@@ -131,12 +193,19 @@ const IndentCreation = () => {
       return;
     }
 
+    if (!indentForDays || indentForDays.trim() === '') {
+      setError('Please enter indent for days');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
       const token = localStorage.getItem('authToken');
+      
       const payload = {
+        days: parseInt(indentForDays),
         segment: validSegments.map(seg => ({
           id: parseInt(seg.segmentId),
           persons: parseInt(seg.nos)
@@ -156,11 +225,14 @@ const IndentCreation = () => {
 
       if (response.ok && !result.error) {
         alert('Indent saved successfully!');
-        // Set the indent details from API response
-        setIndentDetails(result.data || []);
+        // Process and set the indent details from API response
+        const processedDetails = processIndentDetails(result.data || []);
+        setIndentDetails(processedDetails);
+        setUserInfo(result.user); // Store user info
         setShowIndentDetails(true);
         // Reset form to initial state
         setSegments([{ segmentId: '', category: '', diet: '', nos: '' }]);
+        setIndentForDays(inventoryData && inventoryData.data && inventoryData.data.length > 0 ? inventoryData.data[0].order.toString() : '');
         setError('');
       } else {
         setError(result.message || 'Failed to save indent');
@@ -184,7 +256,7 @@ const IndentCreation = () => {
     setSelectedOrder(order);
     setShowPopup(true);
   };
-
+  
   const closePopup = () => {
     setShowPopup(false);
     setSelectedOrder(null);
@@ -196,102 +268,115 @@ const IndentCreation = () => {
     <div className="max-w-7xl mx-auto p-6 bg-gray-50 rounded-lg">
       <div className="flex justify-center mb-8">
         {/* Indent Creation - Full Width */}
-        <div className="w-full max-w-4xl">
+        <div className="w-full max-w-6xl">
           <div className="bg-white shadow rounded-lg p-6 h-full flex flex-col">
             {!showIndentDetails ? (
               <>
                 <h1 className="text-xl font-semibold text-center mb-4 text-gray-800">Indent Creation</h1>
             
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
-                {error}
-              </div>
-            )}
+                {error && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+                    {error}
+                  </div>
+                )}
 
-            <div className="mb-4 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700">Date:</span>
-                <input
-                  type="date"
-                  value={editableDate}
-                  onChange={(e) => setEditableDate(e.target.value)}
-                  className="text-sm px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-              <p className="text-sm font-medium text-gray-700">Total: {currentTotal}</p>
-            </div>
+                <div className="mb-4 flex justify-between items-center">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700">Order Date:</span>
+                      <input
+                        type="date"
+                        value={editableDate}
+                        onChange={(e) => setEditableDate(e.target.value)}
+                        className="text-sm px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700">Indent For:</span>
+                      <input
+                        type="number"
+                        value={indentForDays}
+                        onChange={(e) => setIndentForDays(e.target.value)}
+                        className="text-sm px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 w-20"
+                        placeholder="Days"
+                      />
+                      <span className="text-sm text-gray-500"></span>
+                    </div>
+                  </div>
+                  <p className="text-sm font-medium text-gray-700">Total: {currentTotal}</p>
+                </div>
 
-            <div className="flex-grow overflow-auto">
-              <table className="w-full table-auto border-collapse border border-gray-300">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border border-gray-300 px-4 py-2 text-left">S.No</th>
-                    <th className="border border-gray-300 px-4 py-2 text-left">Prisoner Segment</th>
-                    <th className="border border-gray-300 px-4 py-2 text-left">Nos</th>
-                    <th className="border border-gray-300 px-4 py-2 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {segments.map((item, index) => (
-                    <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
-                      <td className="border border-gray-300 px-4 py-2">{index + 1}.</td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        <select
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-                          value={item.segmentId}
-                          onChange={(e) => handleSegmentChange(index, e.target.value)}
-                        >
-                          <option value="">Select Segment</option>
-                          {segmentOptions.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.category} - {option.diet || 'N/A'}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        <input
-                          type="number"
-                          className="w-24 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          value={item.nos || ''}
-                          onChange={(e) => handleNosChange(index, e.target.value)}
-                          placeholder="0"
-                        />
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2 text-center">
-                        {index === segments.length - 1 ? (
-                          <button
-                            onClick={addRow}
-                            className="text-green-600 hover:text-green-800 font-bold text-lg"
-                            title="Add Row"
-                          >
-                            +
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => removeRow(index)}
-                            className="text-red-600 hover:text-red-800 font-bold text-lg"
-                            title="Remove Row"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                <div className="flex-grow overflow-auto">
+                  <table className="w-full table-auto border-collapse border border-gray-300">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="border border-gray-300 px-4 py-2 text-left">S.No</th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">Resident Segment</th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">Nos</th>
+                        <th className="border border-gray-300 px-4 py-2 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {segments.map((item, index) => (
+                        <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
+                          <td className="border border-gray-300 px-4 py-2">{index + 1}.</td>
+                          <td className="border border-gray-300 px-4 py-2">
+                            <select
+                              className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                              value={item.segmentId}
+                              onChange={(e) => handleSegmentChange(index, e.target.value)}
+                            >
+                              <option value="">Select Segment</option>
+                              {segmentOptions.map((option) => (
+                                <option key={option.id} value={option.id}>
+                                  {option.category} - {option.diet || 'N/A'}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2">
+                            <input
+                              type="number"
+                              className="w-24 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              value={item.nos || ''}
+                              onChange={(e) => handleNosChange(index, e.target.value)}
+                              placeholder="0"
+                            />
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2 text-center">
+                            {index === segments.length - 1 ? (
+                              <button
+                                onClick={addRow}
+                                className="text-green-600 hover:text-green-800 font-bold text-lg"
+                                title="Add Row"
+                              >
+                                +
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => removeRow(index)}
+                                className="text-red-600 hover:text-red-800 font-bold text-lg"
+                                title="Remove Row"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-            <div className="mt-4 flex justify-end">
-              <button 
-                onClick={handleSave}
-                disabled={loading}
-                className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700 transition disabled:opacity-50"
-              >
-                {loading ? 'Saving...' : 'Save'}
-              </button>
-            </div>
+                <div className="mt-4 flex justify-end">
+                  <button 
+                    onClick={handleSave}
+                    disabled={loading}
+                    className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700 transition disabled:opacity-50"
+                  >
+                    {loading ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
               </>
             ) : (
               <>
@@ -301,29 +386,90 @@ const IndentCreation = () => {
                     onClick={() => {
                       setShowIndentDetails(false);
                       setIndentDetails([]);
+                      setUserInfo(null);
                     }}
                     className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition"
                   >
                     Create New Indent
                   </button>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <table className="w-full table-auto border-collapse border border-gray-300">
+
+                {/* User Information Section */}
+                {userInfo && (
+                  <div className="bg-blue-50 rounded-lg p-4 mb-6 border border-blue-200">
+                    <h3 className="text-lg font-semibold text-blue-800 mb-2">User Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium text-gray-700">Name:</span>
+                        <span className="ml-2 text-gray-600">{userInfo.name}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Username:</span>
+                        <span className="ml-2 text-gray-600">{userInfo.username}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Role:</span>
+                        <span className="ml-2 text-gray-600 capitalize">{userInfo.role}</span>
+                      </div>
+                      {userInfo.detail && (
+                        <>
+                          <div>
+                            <span className="font-medium text-gray-700">Branch Type:</span>
+                            <span className="ml-2 text-gray-600">{userInfo.detail.branch_type}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Branch:</span>
+                            <span className="ml-2 text-gray-600">{userInfo.detail.branch}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Location:</span>
+                            <span className="ml-2 text-gray-600">{userInfo.detail.location}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-gray-50 rounded-lg p-4 overflow-x-auto">
+                  <table className="w-full table-auto border-collapse border border-gray-300 min-w-max">
                     <thead>
                       <tr className="bg-gray-100">
-                        <th className="border border-gray-300 px-4 py-2 text-left">S.No</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">Item Name</th>
-                        <th className="border border-gray-300 px-4 py-2 text-center">Quantity</th>
-                        <th className="border border-gray-300 px-4 py-2 text-center">Unit</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left">S.No</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left">Item Name</th>
+                        <th className="border border-gray-300 px-3 py-2 text-center">Required</th>
+                        <th className="border border-gray-300 px-3 py-2 text-center">Stock</th>
+                        <th className="border border-gray-300 px-3 py-2 text-center">Buffer</th>
+                        <th className="border border-gray-300 px-3 py-2 text-center">Ex/Df</th>
+                        <th className="border border-gray-300 px-3 py-2 text-center">Order</th>
+                        <th className="border border-gray-300 px-3 py-2 text-center">Order (Edit)</th>
+                        <th className="border border-gray-300 px-3 py-2 text-center">Unit</th>
                       </tr>
                     </thead>
                     <tbody>
                       {indentDetails.map((item, index) => (
                         <tr key={index} className="hover:bg-white transition-colors duration-150">
-                          <td className="border border-gray-300 px-4 py-2">{index + 1}.</td>
-                          <td className="border border-gray-300 px-4 py-2 font-medium">{item.name}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-center">{item.qty}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-center">{item.unit}</td>
+                          <td className="border border-gray-300 px-3 py-2">{index + 1}.</td>
+                          <td className="border border-gray-300 px-3 py-2 font-medium">{item.name}</td>
+                          <td className="border border-gray-300 px-3 py-2 text-center">{item.required}</td>
+                          <td className="border border-gray-300 px-3 py-2 text-center">{item.stock}</td>
+                          <td className="border border-gray-300 px-3 py-2 text-center">{item.buffer}</td>
+                          <td className="border border-gray-300 px-3 py-2 text-center font-medium">
+                            <span className={parseFloat(item.exDf) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                              {item.exDf}
+                            </span>
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2 text-center">{item.order}</td>
+                          <td className="border border-gray-300 px-3 py-2 text-center">
+                            <input
+                              type="number"
+                              step="0.001"
+                              value={item.editableOrder}
+                              onChange={(e) => handleEditableOrderChange(index, e.target.value)}
+                              className="w-20 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-center text-sm"
+                            />
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2 text-center">{item.unit}</td>
                         </tr>
                       ))}
                     </tbody>

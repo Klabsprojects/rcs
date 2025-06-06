@@ -10,7 +10,7 @@ import Dashboard from './components/Dashboard';
 import IndentCreation from './components/Indent';
 import UserCreation from './components/UserCreation';
 import LoginPage from './pages/LoginPage';
-
+import AttendanceCreation from './pages/Attendance';
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('authToken');
@@ -68,6 +68,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <MastersPage />
+                </ProtectedRoute>
+              } 
+            />
+                           <Route 
+              path="/attendance" 
+              element={
+                <ProtectedRoute>
+                  <AttendanceCreation />
                 </ProtectedRoute>
               } 
             />

@@ -1,14 +1,481 @@
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../services/api';
 
-const groceryOptions = [
-  "TOOR DAL", "BENGAL GRAM DAL", "URAD DAL", "MOONG DAL", "REFINED OIL",
-  "TAMARIND", "CINNAMON", "CLOVES", "FENUGREEK", "MUSTARD", "PEPPERCORNS",
-  "JEERA", "SOMPH", "CORAINDER POWDER", "TURMERIC POWDER", "SALT",
-  "FRIED GRAM DAL", "RAVA", "ASAFOETIDA", "RED CHILLIES", "GARLIC", "DALDA",
-  "WHEAT FLOUR", "SEMIYA", "PULSES", "SUKKU MALLI", "KARUPPU KATTY"
-];
 
+const InlineSegmentDietPlannerForm = ({ segment, onSavePlan, onCancel, loading, groceryItems, getAllowedUnits }) => {
+  const [formType, setFormType] = useState('per-day');
+  const [items, setItems] = useState([{ name: '', quantity: '', unit: 'gram' }]);
+const [fixedGroups, setFixedGroups] = useState(new Set());
+  const [weeklyPlanGroups, setWeeklyPlanGroups] = useState([
+    {
+      id: 1,
+      name: 'Days Selected Plans',
+      days: [],
+      items: [{ name: '', quantity: '', unit: 'gram' }]
+    }
+  ]);
+
+  const [nextGroupId, setNextGroupId] = useState(2);
+
+  const allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  const getGroupDisplayName = (group) => {
+    if (group.days.length === 0) {
+      return 'Days Selected Plans';
+    }
+    return group.days.map(day => day.slice(0, 3)).join(', ') + ' Plans';
+  };
+
+  const handleItemChange = (index, e) => {
+    const { name, value } = e.target;
+    const newItems = [...items];
+    newItems[index][name] = value;
+    setItems(newItems);
+  };
+
+
+
+  const handleGroupItemChange = (groupId, itemIndex, e) => {
+    const { name, value } = e.target;
+    const newGroups = weeklyPlanGroups.map(group => {
+      if (group.id === groupId) {
+        const newItems = [...group.items];
+        newItems[itemIndex][name] = value;
+        return { ...group, items: newItems };
+      }
+      return group;
+    });
+    setWeeklyPlanGroups(newGroups);
+  };
+
+  const handleGroupDayToggle = (groupId, day) => {
+    const newGroups = weeklyPlanGroups.map(group => {
+      if (group.id === groupId) {
+        const newDays = group.days.includes(day) 
+          ? group.days.filter(d => d !== day)
+          : [...group.days, day];
+        return { ...group, days: newDays };
+      }
+      return group;
+    });
+    setWeeklyPlanGroups(newGroups);
+  };
+
+  const addItem = () => setItems([...items, { name: '', quantity: '', unit: 'gram' }]);
+  const removeItem = (index) => setItems(items.filter((_, i) => i !== index));
+
+  const addGroupItem = (groupId) => {
+    const newGroups = weeklyPlanGroups.map(group => {
+      if (group.id === groupId) {
+        return { ...group, items: [...group.items, { name: '', quantity: '', unit: 'gram' }] };
+      }
+      return group;
+    });
+    setWeeklyPlanGroups(newGroups);
+  };
+
+  const removeGroupItem = (groupId, itemIndex) => {
+    const newGroups = weeklyPlanGroups.map(group => {
+      if (group.id === groupId) {
+        return { ...group, items: group.items.filter((_, i) => i !== itemIndex) };
+      }
+      return group;
+    });
+    setWeeklyPlanGroups(newGroups);
+  };
+
+  const addPlanGroup = () => {
+    const newGroup = {
+      id: nextGroupId,
+      name: 'Days Selected Plans',
+      days: [],
+      items: [{ name: '', quantity: '', unit: 'gram' }]
+    };
+    setWeeklyPlanGroups([...weeklyPlanGroups, newGroup]);
+    setNextGroupId(nextGroupId + 1);
+  };
+
+  const removePlanGroup = (groupId) => {
+    if (weeklyPlanGroups.length > 1) {
+      setWeeklyPlanGroups(weeklyPlanGroups.filter(group => group.id !== groupId));
+    }
+  };
+
+  const getGroupedDays = () => {
+    const grouped = new Set();
+    weeklyPlanGroups.forEach(group => {
+      group.days.forEach(day => grouped.add(day));
+    });
+    return grouped;
+  };
+const handleFixGroup = (groupId) => {
+  const group = weeklyPlanGroups.find(g => g.id === groupId);
+  if (group.days.length === 0) {
+    alert('Please select at least one day before fixing the group');
+    return;
+  }
+  
+  // Fix the current group
+  setFixedGroups(prev => new Set([...prev, groupId]));
+  
+  // Check if we need to create a new group (if not all 7 days are covered)
+  const currentGroupedDays = getGroupedDays();
+  if (currentGroupedDays.size < 7) {
+    // Create new group automatically
+    const newGroup = {
+      id: nextGroupId,
+      name: 'Days Selected Plans',
+      days: [],
+      items: [{ name: '', quantity: '', unit: 'gram' }]
+    };
+    setWeeklyPlanGroups(prev => [...prev, newGroup]);
+    setNextGroupId(prev => prev + 1);
+  }
+};
+  const handleSave = () => {
+if (formType === 'per-week') {
+  // Check if all groups are fixed
+  const unfixedGroups = weeklyPlanGroups.filter(group => !fixedGroups.has(group.id));
+  if (unfixedGroups.length > 0) {
+    alert('Please fix all groups before saving the plan');
+    return;
+  }
+  
+  // Validate groups
+  for (const group of weeklyPlanGroups) {
+    if (group.days.length === 0) {
+      alert(`Please select at least one day for ${getGroupDisplayName(group)}`);
+      return;
+    }
+    if (group.items.some(item => !item.name || !item.quantity)) {
+      alert(`Please fill all item fields for ${getGroupDisplayName(group)}`);
+      return;
+    }
+    if (group.items.some(item => isNaN(parseInt(item.quantity)) || parseInt(item.quantity) <= 0)) {
+      alert(`Please enter valid quantities for ${getGroupDisplayName(group)}`);
+      return;
+    }
+  }
+
+  // Check if all 7 days are covered
+  const groupedDays = getGroupedDays();
+  if (groupedDays.size !== 7) {
+    const missingDays = allDays.filter(day => !groupedDays.has(day));
+    alert(`Please assign all days to groups. Missing: ${missingDays.join(', ')}. Create more groups to cover all days.`);
+    return;
+  }
+  
+  const plan = { 
+    formType, 
+    weeklyPlanGroups: weeklyPlanGroups,
+    days: allDays 
+  };
+  onSavePlan(plan);
+}
+    else {
+      // Daily/Monthly plan validation
+      if (items.some(item => !item.name || !item.quantity)) {
+        alert('Please fill all item fields');
+        return;
+      }
+      if (items.some(item => isNaN(parseInt(item.quantity)) || parseInt(item.quantity) <= 0)) {
+        alert('Please enter valid quantities (numbers greater than 0)');
+        return;
+      }
+      
+      const plan = { formType, items };
+      onSavePlan(plan);
+    }
+    
+    // Reset form
+    setItems([{ name: '', quantity: '', unit: 'gram' }]);
+setFixedGroups(new Set());
+    setWeeklyPlanGroups([
+      {
+        id: 1,
+        name: 'Days Selected Plans',
+        days: [],
+        items: [{ name: '', quantity: '', unit: 'gram' }]
+      }
+    ]);
+    setNextGroupId(2);
+
+  };
+
+  return (
+    <div>
+      <div className="mb-3">
+
+
+        <div className="flex gap-3">
+          <label className="flex items-center gap-1 text-sm">
+            <input 
+              type="radio" 
+              value="per-day" 
+              checked={formType === 'per-day'} 
+              onChange={() => setFormType('per-day')}
+              disabled={loading}
+              className="h-3 w-3"
+            /> 
+            Per Day
+          </label>
+          <label className="flex items-center gap-1 text-sm">
+            <input 
+              type="radio" 
+              value="per-week" 
+              checked={formType === 'per-week'} 
+              onChange={() => setFormType('per-week')}
+              disabled={loading}
+              className="h-3 w-3"
+            /> 
+            Per Week
+          </label>
+          <label className="flex items-center gap-1 text-sm">
+            <input 
+              type="radio" 
+              value="per-month" 
+              checked={formType === 'per-month'} 
+              onChange={() => setFormType('per-month')}
+              disabled={loading}
+              className="h-3 w-3"
+            /> 
+            Per Month
+          </label>
+        </div>
+      </div>
+
+
+
+{formType === 'per-week' ? (
+  <div>
+
+    
+ {weeklyPlanGroups.map((group) => {
+  const isGroupFixed = fixedGroups.has(group.id);
+  
+  // If group is fixed, only show the days that were selected for this group
+  const availableDays = isGroupFixed 
+    ? group.days 
+    : allDays.filter(day => {
+        const usedDaysInOtherGroups = new Set();
+        weeklyPlanGroups.forEach(otherGroup => {
+          if (otherGroup.id !== group.id) {
+            otherGroup.days.forEach(day => usedDaysInOtherGroups.add(day));
+          }
+        });
+        return !usedDaysInOtherGroups.has(day);
+      });
+  
+  return (
+    <div key={group.id} className="mb-3 p-3 border rounded bg-gray-50">
+      <div className="flex justify-between items-center mb-2">
+        <div className="text-sm font-medium text-gray-800">
+          {getGroupDisplayName(group)}
+        </div>
+
+      </div>
+      
+      <div className="mb-2">
+        <div className="flex gap-2 mb-1">
+          {availableDays.map((day) => {
+            const isSelected = group.days.includes(day);
+            return (
+              <label key={day} className="flex items-center gap-1 text-xs">
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => !isGroupFixed && handleGroupDayToggle(group.id, day)}
+                  className="h-3 w-3"
+                  disabled={loading || isGroupFixed}
+                />
+                {day.slice(0, 3)}
+              </label>
+            );
+          })}
+        </div>
+        
+        {/* Fix Group button - only show if group is not fixed and has selected days */}
+        {!isGroupFixed && group.days.length > 0 && (
+          <button
+            onClick={() => handleFixGroup(group.id)}
+            className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 mt-1"
+            disabled={loading}
+          >
+            Fix Group
+          </button>
+        )}
+        
+
+      </div>
+
+      {/* Only show items section if group is fixed */}
+      {isGroupFixed && group.days.length > 0 && (
+        <div>
+          <p className="text-xs text-blue-600 mb-1">Items for: {group.days.join(', ')}</p>
+          {group.items.map((item, index) => (
+            <div key={index} className="flex gap-1 mb-1 items-end">
+              <div>
+    <select
+  name="name"
+  value={item.name}
+  onChange={(e) => handleGroupItemChange(group.id, index, e)}
+  className="w-32 border px-1 py-1 rounded text-xs h-7"
+  disabled={loading}
+>
+  <option value="">Item</option>
+  {groceryItems.map((option) => (
+    <option key={option.id} value={option.name}>{option.name}</option>
+  ))}
+</select>
+              </div>
+              <div className="w-16">
+                <input
+                  type="number"
+                  name="quantity"
+                  value={item.quantity}
+                  onChange={(e) => handleGroupItemChange(group.id, index, e)}
+                  placeholder="Qty"
+                  className="w-full border px-1 py-1 rounded text-xs h-7"
+                  min="1"
+                  disabled={loading}
+                />
+              </div>
+              <div className="w-20">
+    <select
+  name="unit"
+  value={item.unit}
+  onChange={(e) => handleGroupItemChange(group.id, index, e)}
+  className="w-full border px-1 py-1 rounded text-xs h-7"
+  disabled={loading}
+>
+  {getAllowedUnits(item.name).map(unitOption => (
+    <option key={unitOption} value={unitOption}>
+      {unitOption === 'gram' ? 'grams' : 
+       unitOption === 'ml' ? 'ml' : 
+       unitOption === 'piece' ? 'pcs' : 
+       unitOption === 'kg' ? 'kg' : 
+       unitOption === 'L' ? 'liters' : unitOption}
+    </option>
+  ))}
+</select>
+              </div>
+              {index > 0 && (
+                <button 
+                  onClick={() => removeGroupItem(group.id, index)} 
+                  className="bg-red-500 text-white px-1 rounded hover:bg-red-600 text-xs h-7 w-7 flex items-center justify-center"
+                  disabled={loading}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            onClick={() => addGroupItem(group.id)}
+            className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+            disabled={loading}
+          >
+            + Item
+          </button>
+        </div>
+      )}
+    </div>
+  );
+})}
+  </div>
+) : (
+        <div>
+          <span className="text-sm font-medium text-gray-700 block mb-2">Items Required</span>
+          {items.map((item, index) => (
+            <div key={index} className="flex gap-1 mb-1 items-end">
+              <div>
+                <select
+                  name="name"
+                  value={item.name}
+                  onChange={(e) => handleItemChange(index, e)}
+                  className="w-32 border px-1 py-1 rounded text-xs h-7"
+                  disabled={loading}
+                >
+           <option value="">Item</option>
+{groceryItems.map((option) => (
+  <option key={option.id} value={option.name}>{option.name}</option>
+))}
+                </select>
+              </div>
+              <div className="w-16">
+                <input
+                  type="number"
+                  name="quantity"
+                  value={item.quantity}
+                  onChange={(e) => handleItemChange(index, e)}
+                  placeholder="Qty"
+                  className="w-full border px-1 py-1 rounded text-xs h-7"
+                  min="1"
+                  disabled={loading}
+                />
+              </div>
+              <div className="w-20">
+<select
+  name="unit"
+  value={item.unit}
+  onChange={(e) => handleItemChange(index, e)}
+  className="w-full border px-1 py-1 rounded text-xs h-7"
+  disabled={loading}
+>
+  {getAllowedUnits(item.name).map(unitOption => (
+    <option key={unitOption} value={unitOption}>
+      {unitOption === 'gram' ? 'grams' : 
+       unitOption === 'ml' ? 'ml' : 
+       unitOption === 'piece' ? 'pcs' : 
+       unitOption === 'kg' ? 'kg' : 
+       unitOption === 'L' ? 'liters' : unitOption}
+    </option>
+  ))}
+</select>
+              </div>
+              {index > 0 && (
+                <button 
+                  onClick={() => removeItem(index)} 
+                  className="bg-red-500 text-white px-1 rounded hover:bg-red-600 text-xs h-7 w-7 flex items-center justify-center"
+                  disabled={loading}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            onClick={addItem}
+            className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+            disabled={loading}
+          >
+            + Item
+          </button>
+        </div>
+      )}
+
+      <div className="mt-4 flex justify-end space-x-2">
+        <button
+          onClick={onCancel}
+          className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 text-sm"
+          disabled={loading}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 text-sm flex items-center space-x-1"
+          disabled={loading}
+        >
+          {loading && (
+            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+          )}
+          <span>{loading ? 'Saving...' : 'Save'}</span>
+        </button>
+      </div>
+    </div>
+  );
+};
 const DietPlanner = () => {
   const [userInfoList, setUserInfoList] = useState([]);
   const [selectedUserIndex, setSelectedUserIndex] = useState(null);
@@ -23,16 +490,16 @@ const [eaterTypes, setEaterTypes] = useState([]);
 const selectedEaterType = eaterTypes.find(type => type.name === formInputs.type);
   const [segmentsLoading, setSegmentsLoading] = useState(false);
   const [expandedSegment, setExpandedSegment] = useState(null);
-  const [selectedSegmentForPlan, setSelectedSegmentForPlan] = useState(null);
+const [expandedSegmentForPlan, setExpandedSegmentForPlan] = useState(null);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
-  const [showSegmentPlanModal, setShowSegmentPlanModal] = useState(false);
-// Add these new state variables
 
+const [groceryItems, setGroceryItems] = useState([]);
+const [groceryItemsLoading, setGroceryItemsLoading] = useState(false);
   // Fetch segments on component mount using GET API
-// Fetch data on component mount
 useEffect(() => {
   fetchSegments();
   fetchEaterTypes();
+  fetchGroceryItems(); // Add this line
 }, []);
 useEffect(() => {
   const handleClickOutside = (event) => {
@@ -53,6 +520,48 @@ useEffect(() => {
   };
 
   // GET API call to fetch all segments
+  const fetchGroceryItems = async () => {
+  try {
+    setGroceryItemsLoading(true);
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+      throw new Error('Authentication token not found. Please login again.');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/segment/items`, {
+      method: 'GET',
+      headers: {
+        'Authorization': token,
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    if (result.error === false) {
+      setGroceryItems(result.data || []);
+    } else {
+      throw new Error(result.message || 'Failed to fetch grocery items');
+    }
+  } catch (error) {
+    console.error('Error fetching grocery items:', error);
+    setApiError(error.message);
+  } finally {
+    setGroceryItemsLoading(false);
+  }
+};
+const getAllowedUnits = (itemName) => {
+  const item = groceryItems.find(item => item.name === itemName);
+  if (!item) return ['gram']; // default unit
+  
+  // Return only the resident field as the unit option
+  return [item.resident];
+};
   const fetchSegments = async () => {
     try {
       setSegmentsLoading(true);
@@ -174,20 +683,39 @@ const handleSavePlan = async (plan) => {
     return;
   }
 
-  // Transform plan data to match API format
-  const planData = {
-    name: `${plan.formType === 'per-day' ? 'Day' : plan.formType === 'per-week' ? 'Week' : 'Month'} Plan`,
-    type: plan.formType === 'per-day' ? 'Day' : plan.formType === 'per-week' ? 'Week' : 'Month',
-    items: plan.items.map(item => ({
-      name: item.name,
-      qty: parseInt(item.quantity) || 0,
-      unit: item.unit === 'gram' ? 'Grams' : 
-            item.unit === 'ml' ? 'Ml' : 
-            item.unit === 'piece' ? 'Pcs' : 
-            item.unit === 'kg' ? 'Kg' : 
-            item.unit === 'L' ? 'L' : item.unit
-    }))
+const planType = plan.formType === 'per-day' ? 'Day' : plan.formType === 'per-week' ? 'Week' : 'Month';
+let planData;
+
+if (plan.formType === 'per-week') {
+  // Keep existing weekly structure
+  planData = {
+    name: `Week Plan`,
+    type: 'Week'
   };
+  
+  plan.items.forEach(item => {
+    const groceryItem = groceryItems.find(g => g.name === item.name);
+    if (groceryItem) {
+      planData[groceryItem.id] = parseInt(item.quantity) || 0;
+    }
+  });
+} else {
+  // New structure for Day/Month
+  const itemsObj = {};
+  
+  plan.items.forEach(item => {
+    const groceryItem = groceryItems.find(g => g.name === item.name);
+    if (groceryItem) {
+      itemsObj[groceryItem.id] = parseInt(item.quantity) || 0;
+    }
+  });
+
+  planData = {
+    name: `${planType} Plan`,
+    [planType]: itemsObj,
+    type: planType
+  };
+}
 
   // Add days if it's a weekly plan
   if (plan.formType === 'per-week' && plan.days) {
@@ -305,78 +833,110 @@ const handleUserCreation = async () => {
     'non-veg': 'Non-Vegetarian'
   };
 
-// If subType exists, send category with subType bound together
-const categoryForAPI = subType ? `${type} - ${subType}` : type;
-const segmentData = await fetchSegmentData(categoryForAPI, dietMapping[dietType]);;
+  // If subType exists, send category with subType bound together
+  const categoryForAPI = subType ? `${type} - ${subType}` : type;
+  const segmentData = await fetchSegmentData(categoryForAPI, dietMapping[dietType]);
 
-    
-    if (apiError || !segmentData) {
-      alert(`Failed to fetch segment data: ${apiError || 'Unknown error'}`);
-      return;
-    }
+  if (apiError || !segmentData) {
+    alert(`Failed to fetch segment data: ${apiError || 'Unknown error'}`);
+    return;
+  }
 
-    // Debug: Log the entire segmentData response
-    console.log('Full segment data response:', JSON.stringify(segmentData, null, 2));
+  // Debug: Log the entire segmentData response
+  console.log('Full segment data response:', JSON.stringify(segmentData, null, 2));
 
-    // FIXED: Find matching segment from segments list instead of using user.id
-const matchingSegment = segments.find(segment => 
-  segment.category === categoryForAPI && 
-  segment.diet === dietMapping[dietType]
-);
-    let segmentId = null;
-    if (matchingSegment) {
-      segmentId = matchingSegment.id;
-      console.log('Found matching segment ID:', segmentId);
-    }
+  // FIXED: Find matching segment from segments list instead of using user.id
+  const matchingSegment = segments.find(segment => 
+    segment.category === categoryForAPI && 
+    segment.diet === dietMapping[dietType]
+  );
+  
+  let segmentId = null;
+  if (matchingSegment) {
+    segmentId = matchingSegment.id;
+    console.log('Found matching segment ID:', segmentId);
+  }
 
-    const newUser = {
-      ...formInputs,
-      plans: [],
-      segmentData: segmentData,
-      segmentId: segmentId,
-      matchingSegment: matchingSegment // Store the full segment data
-    };
-
-    console.log('Created user with segment ID:', segmentId);
-    setUserInfoList([...userInfoList, newUser]);
-setFormInputs({ type: '', subType: '', dietType: '' });
+  const newUser = {
+    ...formInputs,
+    plans: [],
+    segmentData: segmentData,
+    segmentId: segmentId,
+    matchingSegment: matchingSegment // Store the full segment data
   };
 
+  console.log('Created user with segment ID:', segmentId);
+  setUserInfoList([...userInfoList, newUser]);
+  setFormInputs({ type: '', subType: '', dietType: '' });
+  
+  // ADD THIS LINE: Refresh segments after user creation
+  await fetchSegments();
+};
 const handleSaveSegmentPlan = async (plan) => {
-  if (!selectedSegmentForPlan) {
+  const segment = segments.find(s => s.id === expandedSegmentForPlan);
+  if (!segment) {
     alert('No segment selected');
     return;
   }
 
-  // Transform plan data to match API format
-  const segmentPlanData = {
-    name: `${plan.formType === 'per-day' ? 'Day' : plan.formType === 'per-week' ? 'Week' : 'Month'} Plan`,
-    type: plan.formType === 'per-day' ? 'Day' : plan.formType === 'per-week' ? 'Week' : 'Month',
-    items: plan.items.map(item => ({
-      name: item.name,
-      qty: parseInt(item.quantity) || 0,
-      unit: item.unit === 'gram' ? 'Grams' : 
-            item.unit === 'ml' ? 'Ml' : 
-            item.unit === 'piece' ? 'Pcs' : 
-            item.unit === 'kg' ? 'Kg' : 
-            item.unit === 'L' ? 'L' : item.unit
-    }))
-  };
+  let segmentPlanData;
 
-  // Add days if it's a weekly plan
-  if (plan.formType === 'per-week' && plan.days) {
-    segmentPlanData.days = plan.days;
+  if (plan.formType === 'per-week') {
+    // Create the base object with type
+    segmentPlanData = {
+      type: 'Week'
+    };
+
+    // Create individual day entries for each group
+    plan.weeklyPlanGroups.forEach((group) => {
+      const groupItems = group.items.map(item => {
+        const groceryItem = groceryItems.find(g => g.name === item.name);
+        return {
+          id: groceryItem ? groceryItem.id : null,
+          qty: parseInt(item.quantity) || 0
+        };
+      });
+
+      // Add each day in the group as a separate key with the same items
+ // Add each day in the group as a separate key with the same items
+group.days.forEach(day => {
+  const dayItems = {};
+  group.items.forEach(item => {
+    const groceryItem = groceryItems.find(g => g.name === item.name);
+    if (groceryItem) {
+      dayItems[groceryItem.id] = parseInt(item.quantity) || 0;
+    }
+  });
+  segmentPlanData[day] = dayItems;
+});
+    });
+  } else {
+    // Handle daily/monthly plan
+const planType = plan.formType === 'per-day' ? 'Day' : 'Month';
+const itemsObj = {};
+
+plan.items.forEach(item => {
+  const groceryItem = groceryItems.find(g => g.name === item.name);
+  if (groceryItem) {
+    itemsObj[groceryItem.id] = parseInt(item.quantity) || 0;
+  }
+});
+
+segmentPlanData = {
+  [planType]: itemsObj,
+  type: planType
+};
   }
 
   console.log('Final plan data to send for segment:', segmentPlanData);
 
   try {
-    const result = await savePlanToSegment(selectedSegmentForPlan.id, segmentPlanData);
+    const result = await savePlanToSegment(segment.id, segmentPlanData);
     
     // Refresh segments to show updated plans
     fetchSegments();
     
-    alert(`Plan saved successfully for ${selectedSegmentForPlan.category} - ${selectedSegmentForPlan.role}!`);
+    alert(`Plan saved successfully for ${segment.category} - ${segment.role}!`);
   } catch (error) {
     console.error('Failed to save segment plan:', error);
     alert(`Failed to save plan: ${error.message}`);
@@ -511,26 +1071,27 @@ const handleSaveSegmentPlan = async (plan) => {
                       Diet: {segment.diet} | Status: {segment.status}
                     </p>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    {segment.plan && segment.plan.length > 0 && (
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                        {segment.plan.length} plan(s)
-                      </span>
-                    )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedSegmentForPlan(segment);
-                        setShowSegmentPlanModal(true);
-                      }}
-                      className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
-                    >
-                      Add Plan
-                    </button>
-                    <span className="text-gray-400">
-                      {expandedSegment === segment.id ? '▼' : '▶'}
-                    </span>
-                  </div>
+ <div className="flex items-center space-x-2">
+  {segment.plan && segment.plan.length > 0 && (
+    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+      Plan exists
+    </span>
+  )}
+  {(!segment.plan || segment.plan.length === 0) && (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setExpandedSegmentForPlan(expandedSegmentForPlan === segment.id ? null : segment.id);
+      }}
+      className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+    >
+      {expandedSegmentForPlan === segment.id ? 'Cancel' : 'Add Plan'}
+    </button>
+  )}
+  <span className="text-gray-400">
+    {expandedSegment === segment.id ? '▼' : '▶'}
+  </span>
+</div>
                 </div>
                 
                 {/* Expanded segment plans */}
@@ -546,7 +1107,7 @@ const handleSaveSegmentPlan = async (plan) => {
                               {plan.type}
                             </span>
                           </div>
-                  <div className="space-y-1">
+<div className="space-y-1">
   {plan.days && plan.days.length > 0 && (
     <div className="mb-2">
       <h6 className="text-sm font-medium text-gray-700">Days:</h6>
@@ -555,12 +1116,61 @@ const handleSaveSegmentPlan = async (plan) => {
       </div>
     </div>
   )}
-  <h6 className="text-sm font-medium text-gray-700">Items:</h6>
-  {plan.items && plan.items.map((item, itemIndex) => (
-    <div key={itemIndex} className="text-sm text-gray-600 ml-2">
-      • {item.name}: {item.qty} {item.unit}
+  
+  {/* Handle weekly plans with numeric keys */}
+  {plan.type === 'Week' && (
+    <div>
+      <h6 className="text-sm font-medium text-gray-700">Weekly Plan:</h6>
+      {Object.entries(plan)
+        .filter(([key]) => !isNaN(key)) // Only get numeric keys (0, 1, 2, etc.)
+        .map(([groupKey, groupData]) => (
+          <div key={groupKey} className="ml-2 mb-2">
+            <div className="text-sm font-medium text-blue-700">
+              Group {parseInt(groupKey) + 1}: {groupData.days}
+            </div>
+            {groupData.items && groupData.items.length > 0 ? (
+              groupData.items.map((item, itemIndex) => (
+                <div key={itemIndex} className="text-sm text-gray-600 ml-4">
+                  • {item.name}: {item.qty} {item.unit}
+                </div>
+              ))
+            ) : (
+              <div className="text-sm text-gray-500 ml-4 italic">No items</div>
+            )}
+          </div>
+        ))}
     </div>
-  ))}
+  )}
+{/* Handle daily/monthly plans */}
+{(plan.type === 'Day' || plan.type === 'Month') && (
+  <div>
+    <h6 className="text-sm font-medium text-gray-700">Items:</h6>
+    {/* Handle new structure: nested Day/Month object */}
+    {plan[plan.type] && (
+      <div className="ml-2">
+        {Object.entries(plan[plan.type]).map(([itemId, qty]) => (
+          <div key={itemId} className="text-sm text-gray-600">
+            • Item ID {itemId}: {qty}
+          </div>
+        ))}
+      </div>
+    )}
+    
+    {/* Handle old structure: direct id:qty pairs */}
+    {!plan[plan.type] && Object.entries(plan)
+      .filter(([key]) => key !== 'type')
+      .map(([itemId, qty]) => (
+        <div key={itemId} className="text-sm text-gray-600 ml-2">
+          • Item ID {itemId}: {qty}
+        </div>
+      ))}
+  </div>
+)}
+  
+  {/* Fallback if no items found */}
+  {!plan.items && plan.type !== 'Week' && (
+    <div className="text-sm text-gray-500 italic">No items found</div>
+  )}
 </div>
                         </div>
                       </div>
@@ -574,53 +1184,32 @@ const handleSaveSegmentPlan = async (plan) => {
                     <p className="text-sm text-gray-500 italic">No plans created for this segment yet.</p>
                   </div>
                 )}
+                {/* Inline Diet Plan Form */}
+{expandedSegmentForPlan === segment.id && (
+  <div className="p-4 border-t-2 border-blue-200 bg-blue-50">
+    <h4 className="font-medium text-blue-800 mb-3">Create New Diet Plan</h4>
+<InlineSegmentDietPlannerForm
+  segment={segment}
+  onSavePlan={(plan) => {
+    handleSaveSegmentPlan(plan);
+    setExpandedSegmentForPlan(null);
+  }}
+  onCancel={() => setExpandedSegmentForPlan(null)}
+  loading={loading}
+  groceryItems={groceryItems}
+  getAllowedUnits={getAllowedUnits}
+/>
+  </div>
+)}
               </div>
+              
             ))}
           </div>
         </div>
       )}
 
 
-      {/* Modal for creating diet plans for segments */}
-      {showSegmentPlanModal && selectedSegmentForPlan && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Create Diet Plan for Segment</h2>
-              <button
-                onClick={() => {
-                  setShowSegmentPlanModal(false);
-                  setSelectedSegmentForPlan(null);
-                }}
-                className="text-gray-500 hover:text-gray-800 text-xl"
-              >
-                ×
-              </button>
-            </div>
-            
-            {/* Display segment info */}
-            <div className="mb-4 p-3 bg-blue-50 rounded border border-blue-200">
-              <h4 className="font-medium text-blue-800 mb-2">Segment Details:</h4>
-              <p className="text-sm text-blue-700">
-                ID: {selectedSegmentForPlan.id} | {selectedSegmentForPlan.category} - {selectedSegmentForPlan.role}
-              </p>
-              <p className="text-sm text-blue-700">
-                Diet: {selectedSegmentForPlan.diet} | Status: {selectedSegmentForPlan.status}
-              </p>
-            </div>
-            
-            <SegmentDietPlannerForm
-              segment={selectedSegmentForPlan}
-              onSavePlan={(plan) => {
-                handleSaveSegmentPlan(plan);
-                setShowSegmentPlanModal(false);
-                setSelectedSegmentForPlan(null);
-              }}
-              loading={loading}
-            />
-          </div>
-        </div>
-      )}
+
 
       {/* Modal for creating diet plans */}
       {showModal && selectedUserIndex !== null && (
@@ -635,14 +1224,16 @@ const handleSaveSegmentPlan = async (plan) => {
                 ×
               </button>
             </div>
-            <DietPlannerForm
-              userInfo={userInfoList[selectedUserIndex]}
-              onSavePlan={(plan) => {
-                handleSavePlan(plan);
-                setShowModal(false);
-              }}
-              loading={loading}
-            />
+   <DietPlannerForm
+  userInfo={userInfoList[selectedUserIndex]}
+  onSavePlan={(plan) => {
+    handleSavePlan(plan);
+    setShowModal(false);
+  }}
+  loading={loading}
+  groceryItems={groceryItems}
+  getAllowedUnits={getAllowedUnits}
+/>
           </div>
         </div>
       )}
@@ -691,7 +1282,7 @@ const PlanDetails = ({ plan, segmentData }) => {
   );
 };
 
-const SegmentDietPlannerForm = ({ segment, onSavePlan, loading }) => {
+const SegmentDietPlannerForm = ({ segment, onSavePlan, loading, groceryItems, getAllowedUnits }) => {
   const [formType, setFormType] = useState('per-day');
   const [items, setItems] = useState([{ name: '', quantity: '', unit: 'gram' }]);
   const [days, setDays] = useState([]);
@@ -805,10 +1396,10 @@ const SegmentDietPlannerForm = ({ segment, onSavePlan, loading }) => {
               className="w-1/3 border px-2 py-1 rounded"
               disabled={loading}
             >
-              <option value="">Select item</option>
-              {groceryOptions.map((option, idx) => (
-                <option key={idx} value={option}>{option}</option>
-              ))}
+       <option value="">Select item</option>
+{groceryItems.map((option) => (
+  <option key={option.id} value={option.name}>{option.name}</option>
+))}
             </select>
             <input
               type="number"
@@ -820,19 +1411,23 @@ const SegmentDietPlannerForm = ({ segment, onSavePlan, loading }) => {
               min="1"
               disabled={loading}
             />
-            <select
-              name="unit"
-              value={item.unit}
-              onChange={(e) => handleItemChange(index, e)}
-              className="w-1/4 border px-2 py-1 rounded"
-              disabled={loading}
-            >
-              <option value="gram">Grams</option>
-              <option value="ml">Ml</option>
-              <option value="piece">Pcs</option>
-              <option value="kg">Kg</option>
-              <option value="L">L</option>
-            </select>
+      <select
+  name="unit"
+  value={item.unit}
+  onChange={(e) => handleItemChange(index, e)}
+  className="w-1/4 border px-2 py-1 rounded"
+  disabled={loading}
+>
+  {getAllowedUnits(item.name).map(unitOption => (
+    <option key={unitOption} value={unitOption}>
+      {unitOption === 'gram' ? 'Grams' : 
+       unitOption === 'ml' ? 'Ml' : 
+       unitOption === 'piece' ? 'Pcs' : 
+       unitOption === 'kg' ? 'Kg' : 
+       unitOption === 'L' ? 'L' : unitOption}
+    </option>
+  ))}
+</select>
             {index > 0 && (
               <button 
                 onClick={() => removeItem(index)} 
@@ -879,7 +1474,7 @@ const SegmentDietPlannerForm = ({ segment, onSavePlan, loading }) => {
   );
 };
 
-const DietPlannerForm = ({ userInfo, onSavePlan, loading }) => {
+const DietPlannerForm = ({ userInfo, onSavePlan, loading, groceryItems, getAllowedUnits }) => {
   const [formType, setFormType] = useState('per-day');
   const [items, setItems] = useState([{ name: '', quantity: '', unit: 'gram' }]);
   const [days, setDays] = useState([]);
@@ -1007,10 +1602,10 @@ const DietPlannerForm = ({ userInfo, onSavePlan, loading }) => {
               className="w-1/3 border px-2 py-1 rounded"
               disabled={loading}
             >
-              <option value="">Select item</option>
-              {groceryOptions.map((option, idx) => (
-                <option key={idx} value={option}>{option}</option>
-              ))}
+         <option value="">Select item</option>
+{groceryItems.map((option) => (
+  <option key={option.id} value={option.name}>{option.name}</option>
+))}
             </select>
             <input
               type="number"
@@ -1022,19 +1617,23 @@ const DietPlannerForm = ({ userInfo, onSavePlan, loading }) => {
               min="1"
               disabled={loading}
             />
-            <select
-              name="unit"
-              value={item.unit}
-              onChange={(e) => handleItemChange(index, e)}
-              className="w-1/4 border px-2 py-1 rounded"
-              disabled={loading}
-            >
-              <option value="gram">Grams</option>
-              <option value="ml">Ml</option>
-              <option value="piece">Pcs</option>
-              <option value="kg">Kg</option>
-              <option value="L">L</option>
-            </select>
+     <select
+  name="unit"
+  value={item.unit}
+  onChange={(e) => handleItemChange(index, e)}
+  className="w-1/4 border px-2 py-1 rounded"
+  disabled={loading}
+>
+  {getAllowedUnits(item.name).map(unitOption => (
+    <option key={unitOption} value={unitOption}>
+      {unitOption === 'gram' ? 'Grams' : 
+       unitOption === 'ml' ? 'Ml' : 
+       unitOption === 'piece' ? 'Pcs' : 
+       unitOption === 'kg' ? 'Kg' : 
+       unitOption === 'L' ? 'L' : unitOption}
+    </option>
+  ))}
+</select>
             {index > 0 && (
               <button 
                 onClick={() => removeItem(index)} 
