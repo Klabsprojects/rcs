@@ -11,6 +11,7 @@ import IndentCreation from './components/Indent';
 import UserCreation from './components/UserCreation';
 import LoginPage from './pages/LoginPage';
 import AttendanceCreation from './pages/Attendance';
+import IndentApproval from './pages/IndentApproval';
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('authToken');
@@ -93,6 +94,16 @@ function App() {
                 <ProtectedRoute>
                   <UserCreation />
                 </ProtectedRoute>
+                
+              } 
+            />
+              <Route 
+              path="/indent-approval" 
+              element={
+                <ProtectedRoute>
+                  <IndentApproval />
+                </ProtectedRoute>
+                
               } 
             />
           </Routes>

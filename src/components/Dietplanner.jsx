@@ -495,6 +495,11 @@ const [expandedSegmentForPlan, setExpandedSegmentForPlan] = useState(null);
 
 const [groceryItems, setGroceryItems] = useState([]);
 const [groceryItemsLoading, setGroceryItemsLoading] = useState(false);
+// NEW: State for detailed plan view
+const [detailedPlanView, setDetailedPlanView] = useState({});
+const [planDetailsLoading, setPlanDetailsLoading] = useState(false);
+const [expandedPlan, setExpandedPlan] = useState(null);
+const [expandedPlanDetails, setExpandedPlanDetails] = useState({});
   // Fetch segments on component mount using GET API
 useEffect(() => {
   fetchSegments();
@@ -553,6 +558,83 @@ useEffect(() => {
     setApiError(error.message);
   } finally {
     setGroceryItemsLoading(false);
+  }
+};
+
+// NEW: Function to bind items to plan and get detailed information
+// NEW: Function to bind items to plan and get detailed information
+const bindItemsToPlan = async (plan) => {
+  try {
+    setPlanDetailsLoading(true);
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+      throw new Error('Authentication token not found. Please login again.');
+    }
+
+    // Create the exact body structure as required by the API
+    const requestBody = {
+      plan: [plan]
+    };
+
+    console.log('Sending to /segment/bind-items:', JSON.stringify(requestBody, null, 2));
+
+    const response = await fetch(`${API_BASE_URL}/segment/bind-items`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log('API Response:', result);
+    
+    if (result.error === false) {
+      return result.data || result;
+    } else {
+      throw new Error(result.message || 'Failed to bind items to plan');
+    }
+  } catch (error) {
+    console.error('Error binding items to plan:', error);
+    throw error;
+  } finally {
+    setPlanDetailsLoading(false);
+  }
+};
+// NEW: Handler for viewing detailed plan
+const handleViewDetailedPlan = async (segmentId, planIndex) => {
+  const detailKey = `${segmentId}-${planIndex}`;
+  
+  // If already loaded, toggle view
+  if (detailedPlanView[detailKey]) {
+    setDetailedPlanView(prev => ({
+      ...prev,
+      [detailKey]: null
+    }));
+    return;
+  }
+
+  try {
+    const segment = segments.find(s => s.id === segmentId);
+    if (!segment || !segment.plan || !segment.plan[planIndex]) {
+      alert('Plan not found');
+      return;
+    }
+const plan = segment.plan[planIndex];
+const detailedPlan = await bindItemsToPlan(plan);
+    
+    setDetailedPlanView(prev => ({
+      ...prev,
+      [detailKey]: detailedPlan
+    }));
+  } catch (error) {
+    alert(`Failed to load plan details: ${error.message}`);
   }
 };
 const getAllowedUnits = (itemName) => {
@@ -946,18 +1028,79 @@ segmentPlanData = {
     setExpandedUserIndex(expandedUserIndex === userIndex ? null : userIndex);
   };
 
-  const toggleSegmentExpansion = (segmentId) => {
-    setExpandedSegment(expandedSegment === segmentId ? null : segmentId);
-  };
+const toggleSegmentExpansion = (segmentId) => {
+  const isExpanding = expandedSegment !== segmentId;
+  setExpandedSegment(expandedSegment === segmentId ? null : segmentId);
+  
+  // If expanding, call API for all plans in this segment
+  if (isExpanding) {
+    const segment = segments.find(s => s.id === segmentId);
+    if (segment && segment.plan && segment.plan.length > 0) {
+      segment.plan.forEach((plan, planIndex) => {
+        handleViewDetailedPlan(segmentId, planIndex);
+      });
+    }
+  }
+};
 
   // Retry function for failed API calls
   const handleRetry = () => {
     setApiError('');
     fetchSegments();
   };
+// Component to display detailed plan with item names
+// Component to display detailed plan with item names
+const DetailedPlanView = ({ segmentId, planIndex, plan }) => {
+  const detailKey = `${segmentId}-${planIndex}`;
+  const detailedPlan = detailedPlanView[detailKey];
+  
+  if (!detailedPlan) return <div className="text-sm text-gray-500">Loading plan details...</div>;
+
+  // Extract the plan from the API response
+  const planData = detailedPlan.plan && detailedPlan.plan[0] ? detailedPlan.plan[0] : null;
+  
+  if (!planData) return <div className="text-sm text-red-500">No plan data found</div>;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="p-3 bg-white border border-blue-200 rounded">
+     <h6 className="text-sm font-medium text-blue-800 mb-2">{planData.type}</h6>
+      
+      {planData.type === 'Week' && (
+        <div className="space-y-3">
+          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
+            if (!planData[day]) return null;
+            
+            return (
+              <div key={day} className="border-l-2 border-blue-300 pl-3">
+                <h6 className="text-sm font-medium text-blue-700">{day}:</h6>
+                <div className="ml-2 space-y-1">
+                  {Object.entries(planData[day]).map(([itemName, itemDetails]) => (
+                    <div key={itemName} className="text-sm text-gray-700">
+                      • {itemName}: {itemDetails.qty} {itemDetails.unit}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {(planData.type === 'Day' || planData.type === 'Month') && (
+        <div className="space-y-1">
+          {Object.entries(planData[planData.type] || {}).map(([itemName, itemDetails]) => (
+            <div key={itemName} className="text-sm text-gray-700">
+              • {itemName}: {itemDetails.qty} {itemDetails.unit}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+return (
+  <div className="max-w-7xl mx-auto px-4 py-6">
     
       
 
@@ -1093,90 +1236,42 @@ segmentPlanData = {
   </span>
 </div>
                 </div>
-                
-                {/* Expanded segment plans */}
-                {expandedSegment === segment.id && segment.plan && segment.plan.length > 0 && (
-                  <div className="p-4 border-t border-gray-200 bg-white">
-                    <h4 className="font-medium text-gray-800 mb-3">Existing Plans:</h4>
-                    {segment.plan.map((plan, planIndex) => (
-                      <div key={planIndex} className="mb-4 last:mb-0">
-                        <div className="bg-blue-50 p-3 rounded">
-                          <div className="flex justify-between items-start mb-2">
-                            <h5 className="font-medium text-blue-800">{plan.name}</h5>
-                            <span className="text-xs bg-blue-200 text-blue-700 px-2 py-1 rounded">
-                              {plan.type}
-                            </span>
-                          </div>
-<div className="space-y-1">
-  {plan.days && plan.days.length > 0 && (
-    <div className="mb-2">
-      <h6 className="text-sm font-medium text-gray-700">Days:</h6>
-      <div className="text-sm text-gray-600 ml-2">
-        {plan.days.join(', ')}
-      </div>
-    </div>
-  )}
-  
-  {/* Handle weekly plans with numeric keys */}
-  {plan.type === 'Week' && (
-    <div>
-      <h6 className="text-sm font-medium text-gray-700">Weekly Plan:</h6>
-      {Object.entries(plan)
-        .filter(([key]) => !isNaN(key)) // Only get numeric keys (0, 1, 2, etc.)
-        .map(([groupKey, groupData]) => (
-          <div key={groupKey} className="ml-2 mb-2">
-            <div className="text-sm font-medium text-blue-700">
-              Group {parseInt(groupKey) + 1}: {groupData.days}
-            </div>
-            {groupData.items && groupData.items.length > 0 ? (
-              groupData.items.map((item, itemIndex) => (
-                <div key={itemIndex} className="text-sm text-gray-600 ml-4">
-                  • {item.name}: {item.qty} {item.unit}
-                </div>
-              ))
-            ) : (
-              <div className="text-sm text-gray-500 ml-4 italic">No items</div>
-            )}
-          </div>
-        ))}
-    </div>
-  )}
-{/* Handle daily/monthly plans */}
-{(plan.type === 'Day' || plan.type === 'Month') && (
-  <div>
-    <h6 className="text-sm font-medium text-gray-700">Items:</h6>
-    {/* Handle new structure: nested Day/Month object */}
-    {plan[plan.type] && (
-      <div className="ml-2">
-        {Object.entries(plan[plan.type]).map(([itemId, qty]) => (
-          <div key={itemId} className="text-sm text-gray-600">
-            • Item ID {itemId}: {qty}
-          </div>
-        ))}
-      </div>
-    )}
-    
-    {/* Handle old structure: direct id:qty pairs */}
-    {!plan[plan.type] && Object.entries(plan)
-      .filter(([key]) => key !== 'type')
-      .map(([itemId, qty]) => (
-        <div key={itemId} className="text-sm text-gray-600 ml-2">
-          • Item ID {itemId}: {qty}
-        </div>
-      ))}
-  </div>
-)}
-  
-  {/* Fallback if no items found */}
-  {!plan.items && plan.type !== 'Week' && (
-    <div className="text-sm text-gray-500 italic">No items found</div>
+{/* Expanded segment plans */}
+{expandedSegment === segment.id && segment.plan && segment.plan.length > 0 && (
+  <div className="p-4 border-t border-gray-200 bg-white">
+    <h4 className="font-medium text-gray-800 mb-3">Existing Plans:</h4>
+    {segment.plan.map((plan, planIndex) => {
+      const detailKey = `${segment.id}-${planIndex}`;
+      const isDetailedViewOpen = detailedPlanView[detailKey];
+      
+      return (
+        <div key={planIndex} className="mb-4 last:mb-0">
+          <div className="bg-blue-50 p-3 rounded">
+       <div className="flex justify-between items-start mb-2">
+
+  {planDetailsLoading && (
+    <span className="text-gray-400">⟳</span>
   )}
 </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+
+            {/* Show detailed plan */}
+            <div className="mt-3">
+              {isDetailedViewOpen ? (
+                <DetailedPlanView 
+                  segmentId={segment.id} 
+                  planIndex={planIndex} 
+                  plan={plan}
+                />
+              ) : (
+                <div className="text-sm text-gray-500">Loading plan details...</div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+)}
                 
                 {/* No plans message */}
                 {expandedSegment === segment.id && (!segment.plan || segment.plan.length === 0) && (

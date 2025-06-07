@@ -86,8 +86,8 @@ const UserManagement = () => {
   // State for form visibility
   const [showForm, setShowForm] = useState(currentUserRole === 'department' ? true : false);
 
+  const [expandedProfileData, setExpandedProfileData] = useState(null);
 
-  const [activeRowAction, setActiveRowAction] = useState(null); // e.g. { type: 'reset', rowId: 1 }
 
 
   const [selectedUserView, setSelectedUserView] = useState(null);
@@ -169,7 +169,7 @@ const UserManagement = () => {
   };
 
   const labels = getLabels();
-  const generateUsernameSuffix = (branchType, district) => {
+  const generateUsernameSuffix = async (branchType, district) => {
     // Get user info from localStorage
     const userInfo = localStorage.getItem('user');
     let departmentShortForm = '';
@@ -192,8 +192,13 @@ const UserManagement = () => {
     const branchTypeShort = branchType ? branchType.substring(0, 3).toUpperCase() : '';
     const districtShort = district ? district.substring(0, 3).toUpperCase() : '';
 
-    // Format: TN + DepartmentShortForm + BranchTypeFirst3 + DistrictFirst3
-    return `TN${departmentShortForm}${branchTypeShort}${districtShort}`;
+    // Get the count of existing branches for this type and add 1 for the new branch
+    const branchCount = await getBranchCountForType(branchType);
+    const sequenceNumber = (branchCount + 1).toString().padStart(2, '0');
+
+    // Format: TN + DepartmentShortForm + BranchTypeFirst3 + DistrictFirst3 + SequenceNumber (all lowercase)
+    const suffix = `tn${departmentShortForm.toLowerCase()}${branchTypeShort.toLowerCase()}${districtShort.toLowerCase()}${sequenceNumber}`;
+    return suffix;
   };
   const handleCreateAllBranches = async () => {
     console.log('Button clicked!');
@@ -439,6 +444,7 @@ const UserManagement = () => {
     }
   };
 
+  const [isLoadingUser, setIsLoadingUser] = useState(false);
   // Add this function after fetchUsers
   const fetchBranchesForType = async (typeName) => {
     try {
@@ -494,20 +500,22 @@ const UserManagement = () => {
       if (typeof users !== 'object') return [];
       return Object.keys(users).filter(key => key !== 'user').map(departmentName => {
         const departmentData = users[departmentName] || {};
-        const typeCount = Object.keys(departmentData).length;
+const typeCount = Object.keys(departmentData).filter(key => key !== 'username').length;
 
         // Calculate total branches and users
         let totalBranches = 0;
         let totalUsers = 0;
 
-        Object.values(departmentData).forEach(branches => {
-          totalBranches += Object.keys(branches).length;
-          Object.values(branches).forEach(branchUsers => {
-            if (Array.isArray(branchUsers)) {
-              totalUsers += branchUsers.length;
-            }
-          });
-        });
+Object.values(departmentData).forEach(branches => {
+  if (typeof branches === 'object' && branches !== null && !Array.isArray(branches) && !branches.username) {
+    totalBranches += Object.keys(branches).length;
+    Object.values(branches).forEach(branchUsers => {
+      if (Array.isArray(branchUsers)) {
+        totalUsers += branchUsers.length;
+      }
+    });
+  }
+});
 
         return {
           id: departmentName,
@@ -543,21 +551,23 @@ const UserManagement = () => {
         return;
       }
 
-      if (currentUserRole === 'rcs-admin') {
-        const departmentData = users[department.name] || {};
-        const types = Object.keys(departmentData).map(typeName => {
-          const branches = departmentData[typeName] || {};
-          const totalUsers = Object.values(branches).reduce((total, branchUsers) => {
-            return total + (Array.isArray(branchUsers) ? branchUsers.length : 0);
-          }, 0);
+ if (currentUserRole === 'rcs-admin') {
+  const departmentData = users[department.name] || {};
+  const types = Object.keys(departmentData)
+    .filter(key => key !== 'username') // Exclude username field
+    .map(typeName => {
+      const branches = departmentData[typeName] || {};
+      const totalUsers = Object.values(branches).reduce((total, branchUsers) => {
+        return total + (Array.isArray(branchUsers) ? branchUsers.length : 0);
+      }, 0);
 
-          return {
-            id: typeName,
-            name: typeName,
-            userCount: totalUsers,
-            branchCount: Object.keys(branches).length
-          };
-        });
+      return {
+        id: typeName,
+        name: typeName,
+        userCount: totalUsers,
+        branchCount: Object.keys(branches).length
+      };
+    });
 
         setExpandedDepartments([...expandedDepartments, {
           ...department,
@@ -671,6 +681,13 @@ const UserManagement = () => {
 
   const getBranchCountForType = async (typeName) => {
     try {
+      // First check locally created branches in divisionGroups
+      const localGroup = divisionGroups.find(group => group.name === typeName);
+      if (localGroup && localGroup.details) {
+        return localGroup.details.length;
+      }
+
+      // If not found locally, check API
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_BASE_URL}/user`, {
         method: 'GET',
@@ -1140,9 +1157,9 @@ const UserManagement = () => {
                               </button>
                               {/* +Branch button */}
                               <button
-                                onClick={() => {
+                                onClick={async () => {
                                   // Generate initial suffix when branch type is selected
-                                  const initialSuffix = generateUsernameSuffix(division.name, '');
+                                  const initialSuffix = await generateUsernameSuffix(division.name, '');
 
                                   setShowAddUserForm(true);
                                   setSelectedBranchForUser(division.name);
@@ -1229,30 +1246,31 @@ const UserManagement = () => {
                                                   <span className="text-xs bg-gray-200 px-2 py-1 rounded-full font-medium text-gray-800">
                                                     {user.name}
                                                   </span>
-                                                  <span className="text-xs text-gray-500">@{user.branch}</span>
+                                                  <span className="text-xs text-gray-500">{user.username}</span>
                                                 </div>
 
                                                 <div className="flex gap-2">
-  <button
-    onClick={() => {
-      setSelectedUserEdit(null); // optional: clear edit if open
-      setSelectedUserView(user);
-    }}
-    className="px-2 py-1 text-xs font-medium text-blue-600 border border-blue-200 rounded hover:bg-blue-50 transition"
-  >
-    View
-  </button>
+                                                  <button
+                                                    onClick={() => {
+                                                      setSelectedUserEdit(null); // optional: clear edit if open
+                                                      setSelectedUserView(user);
+                                                    }}
+                                                    className="px-2 py-1 text-xs font-medium text-blue-600 border border-blue-200 rounded hover:bg-blue-50 transition"
+                                                  >
+                                                    View
+                                                  </button>
 
-  <button
-    onClick={() => {
-      setSelectedUserView(null); // optional: clear view if open
-      setSelectedUserEdit(user);
-    }}
-    className="px-2 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition"
-  >
-    Edit
-  </button>
-</div>
+                                <button
+  onClick={() => {
+    setSelectedUserView(null);
+    setSelectedUserEdit(user);
+  }}
+  className="px-2 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition-colors"
+>
+  Edit
+</button>
+
+                                                </div>
                                               </li>
 
 
@@ -1289,90 +1307,173 @@ const UserManagement = () => {
                 </div>
 
 
-              {/* RIGHT PANEL STARTS */}
-            {selectedUserView && (
+                {/* RIGHT PANEL STARTS */}
+                {selectedUserView && (
+                  <div className="bg-white border border-gray-200 rounded-xl shadow-md p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-sky-800">User Profile</h3>
+                      <button
+                        className="text-sm text-red-500 hover:text-red-700 font-medium"
+                        onClick={() => setSelectedUserView(null)}
+                      >
+                        ✖
+                      </button>
+                    </div>
+
+                    <div className="divide-y divide-gray-100">
+                      {[
+                        { label: 'Full Name', value: selectedUserView.name },
+                        { label: 'Username', value: selectedUserView.username },
+                        { label: 'Branch', value: selectedUserView.branch },
+                        { label: 'Contact', value: selectedUserView.contact },
+                        { label: 'District', value: selectedUserView.district },
+                      ].map(
+                        (item, index) =>
+                          item.value && (
+                            <div key={index} className="grid grid-cols-3 gap-4 py-2 items-center">
+                              <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+                                {item.label}
+                              </div>
+                              <div className="col-span-2 text-sm text-gray-800 pl-2">
+                                {item.value}
+                              </div>
+                            </div>
+                          )
+                      )}
+                    </div>
+                  </div>
+                )}
+{selectedUserEdit && (
   <div className="bg-white border border-gray-200 rounded-xl shadow-md p-6 space-y-4">
     <div className="flex items-center justify-between">
-      <h3 className="text-lg font-semibold text-sky-800">User Profile</h3>
+      <h3 className="text-lg font-semibold text-sky-800">Edit User</h3>
       <button
         className="text-sm text-red-500 hover:text-red-700 font-medium"
-        onClick={() => setSelectedUserView(null)}
+        onClick={() => setSelectedUserEdit(null)}
       >
         ✖
       </button>
     </div>
 
     <div className="divide-y divide-gray-100">
-      {[
-        { label: 'Full Name', value: selectedUserView.name },
-        { label: 'Username', value: selectedUserView.username },
-        { label: 'Branch', value: selectedUserView.branch },
-        { label: 'Contact', value: selectedUserView.contact },
-        { label: 'District', value: selectedUserView.district },
-      ].map(
-        (item, index) =>
-          item.value && (
-            <div key={index} className="grid grid-cols-3 gap-4 py-2 items-center">
-              <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
-                {item.label}
-              </div>
-              <div className="col-span-2 text-sm text-gray-800 pl-2">
-                {item.value}
-              </div>
-            </div>
-          )
-      )}
+      <div className="grid grid-cols-3 gap-4 py-2 items-center">
+        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+          Name
+        </div>
+        <div className="col-span-2 pl-2">
+          <input
+            type="text"
+            value={selectedUserEdit.name || ''}
+            onChange={(e) => setSelectedUserEdit({ ...selectedUserEdit, name: e.target.value })}
+            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+            placeholder="Enter name"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 py-2 items-center">
+        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+          Username
+        </div>
+        <div className="col-span-2 pl-2">
+          <input
+            type="text"
+            value={selectedUserEdit.username || ''}
+            onChange={(e) => setSelectedUserEdit({ ...selectedUserEdit, username: e.target.value })}
+            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+            placeholder="Enter username"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 py-2 items-center">
+        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+          Password
+        </div>
+        <div className="col-span-2 pl-2">
+          <input
+            type="password"
+            value={selectedUserEdit.newPassword || ''}
+            onChange={(e) => setSelectedUserEdit({ ...selectedUserEdit, newPassword: e.target.value })}
+            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+            placeholder="Enter new password"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 py-2 items-center">
+        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+          Designation
+        </div>
+        <div className="col-span-2 pl-2">
+          <input
+            type="text"
+            value={selectedUserEdit.designation || ''}
+            onChange={(e) => setSelectedUserEdit({ ...selectedUserEdit, designation: e.target.value })}
+            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+            placeholder="Enter designation"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 py-2 items-center">
+        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+          Contact
+        </div>
+        <div className="col-span-2 pl-2">
+          <input
+            type="text"
+            value={selectedUserEdit.contact || ''}
+            onChange={(e) => setSelectedUserEdit({ ...selectedUserEdit, contact: e.target.value })}
+            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+            placeholder="Enter contact number"
+          />
+        </div>
+      </div>
     </div>
-  </div>
-)}
 
-
-{selectedUserEdit && (
-  <div className="border border-gray-300 rounded-lg p-4 bg-white shadow-sm w-full max-w-sm space-y-3 relative">
-    
-    {/* Header with Close Button */}
-    <div className="flex justify-between items-center mb-1">
-      <h3 className="text-sm font-semibold text-gray-800">Reset Password</h3>
+    <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
       <button
         onClick={() => setSelectedUserEdit(null)}
-        className="text-gray-500 hover:text-red-500 text-sm font-bold"
-        title="Close"
-      >
-        ✖
-      </button>
-    </div>
-
-    {/* Password Input */}
-    <div className="flex items-center space-x-2">
-      <label className="text-sm text-gray-700 whitespace-nowrap">Password:</label>
-      <input
-        type="password"
-        value={selectedUserEdit.password || ''}
-        onChange={(e) => setSelectedUserEdit({ ...selectedUserEdit, password: e.target.value })}
-        className="border border-black px-2 py-1 text-sm rounded w-44"
-      />
-    </div>
-
-    {/* Save / Cancel Buttons */}
-    <div className="flex justify-end space-x-2 pt-2">
-      <button
-        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-        onClick={() => {
-          console.log('Resetting password to:', selectedUserEdit.password);
-        }}
-      >
-        Save
-      </button>
-      <button
-        className="px-3 py-1 bg-gray-100 text-sm text-gray-700 rounded hover:bg-gray-200"
-        onClick={() => setSelectedUserEdit(null)}
+        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
       >
         Cancel
       </button>
+      <button
+        onClick={async () => {
+          try {
+            const token = localStorage.getItem('authToken');
+            const res = await fetch(`${API_BASE_URL}/user/${selectedUserEdit.id}`, {
+              method: 'PUT',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(selectedUserEdit),
+            });
+
+            if (res.ok) {
+              setSelectedUserEdit(null);
+              await fetchUsers();
+              await fetchBranchDetails();
+              setSubmitSuccess(true);
+              setTimeout(() => {
+                setSubmitSuccess(false);
+              }, 3000);
+            } else {
+              alert('Save failed');
+            }
+          } catch (err) {
+            console.error('Save error:', err);
+          }
+        }}
+        className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+      >
+        Save Changes
+      </button>
     </div>
   </div>
 )}
-
 
 
 
@@ -1618,8 +1719,8 @@ const UserManagement = () => {
                       </button>
                     </div>
                   </div>
-                  
-                ) : (!showAddUserForm && !selectedUserEdit)? (
+
+                ) : !showAddUserForm ? (
                   <div className="space-y-3">
                     <h3 className="text-sm font-semibold text-gray-800">Create Type</h3>
                     <div className="flex gap-2 items-start">
@@ -1635,7 +1736,7 @@ const UserManagement = () => {
                         type="button"
                         onClick={async () => {
                           if (formData.name.trim()) {
-                            const initialSuffix = generateUsernameSuffix(formData.name, '');
+                            const initialSuffix = await generateUsernameSuffix(formData.name, '');
                             setShowAddUserForm(true);
                             setSelectedBranchForUser(formData.name);
                             setAddUserForm({
@@ -1699,9 +1800,9 @@ const UserManagement = () => {
                       <input
                         type="text"
                         value={addUserForm.district}
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const district = e.target.value;
-                          const generatedSuffix = generateUsernameSuffix(selectedBranchForUser, district);
+                          const generatedSuffix = await generateUsernameSuffix(selectedBranchForUser, district);
                           setAddUserForm({
                             ...addUserForm,
                             district: district,
@@ -1815,7 +1916,7 @@ const UserManagement = () => {
 
           </div>
         ) : (
-          <div className={`grid grid-cols-1 transition-all duration-500 ease-in-out ${showForm ? 'xl:grid-cols-4 lg:grid-cols-1' : 'lg:grid-cols-1'} gap-4 xl:gap-8`}>
+          <div className={`grid grid-cols-1 transition-all duration-500 ease-in-out ${showForm ? 'xl:grid-cols-2 lg:grid-cols-1' : 'lg:grid-cols-1'} gap-2 xl:gap-4`}>
             <div className={`transition-all duration-500 ease-in-out ${showForm ? 'xl:col-span-1 lg:col-span-1' : 'lg:col-span-1'}`}>
               <div className="mb-6 flex justify-between items-center">
                 <h2 className="text-2xl font-semibold text-sky-800">{labels.entityNamePlural}</h2>
@@ -1839,343 +1940,370 @@ const UserManagement = () => {
               ) : getDepartments().length > 0 ? (
                 <div className="bg-white rounded-lg shadow-sm overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[600px]">
-                      <thead className="bg-gray-50 border-b">
-                        <tr>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Department
-                          </th>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                            Department Details
-                          </th>
-                            <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-      Username
-    </th>
-                          {!expandedReset && !expandedProfile && (
-                            <th className="px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Actions
-                            </th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {getDepartments().map((department) => {
-                          const isExpanded = expandedDepartments.find(d => d.id === department.id);
 
-                          return (
-                            <React.Fragment key={department.id}>
-                              {/* Department Row */}
-                              <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => handleDepartmentClick(department)}>
-                                <td className="px-2 sm:px-4 py-2 sm:py-3">
-                                  <div className="flex items-center">
-                                    <div className="flex-shrink-0 h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center mr-2 sm:mr-3">
-                                      <span className="text-white font-semibold text-xs">
-                                        {(() => {
-                                          const words = department.name?.trim().split(' ') || [];
-                                          if (words.length === 1) {
-                                            const name = words[0];
-                                            return (name.charAt(0) + name.charAt(name.length - 1)).toUpperCase();
-                                          } else if (words.length >= 2) {
-                                            return words
-                                              .slice(0, 2)
-                                              .map(word => word.charAt(0).toUpperCase())
-                                              .join('');
-                                          } else {
-                                            return 'DE';
-                                          }
-                                        })()}
-                                      </span>
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">{department.name}</div>
-                                      {/* Show details on mobile below name */}
-                                      <div className="sm:hidden mt-1">
-                                        {currentUserRole === 'rcs-admin' ? (
-                                          <div className="flex flex-wrap gap-1">
-                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                              {department.typeCount} Types
-                                            </span>
-                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                              {department.totalBranches} Branches
-                                            </span>
-                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                              {department.totalUsers} Users
-                                            </span>
-                                          </div>
-                                        ) : (
-                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                            {department.userCount} Users
+                    <div className="flex w-full space-x-4">
+                      <div className={`transition-all duration-500 ${expandedReset || expandedProfile ? 'w-2/3' : 'w-full'}`}>
+                        <table className="w-full min-w-[600px]">
+                          <thead className="bg-gray-50 border-b">
+                            <tr>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Department
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Details
+                              </th>
+                              <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Username
+                              </th>
+                              <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                {expandedReset || expandedProfile ? '' : 'Actions'}
+                              </th>
+                            </tr>
+                          </thead>
+
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {getDepartments().map((department) => {
+                              const isExpanded = expandedDepartments.find(d => d.id === department.id);
+
+                              return (
+                                <React.Fragment key={department.id}>
+                                  {/* Department Row */}
+                                  <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => handleDepartmentClick(department)}>
+                                    <td className="px-2 py-2">
+                                      <div className="flex items-center">
+                                        <div className="flex-shrink-0 h-6 w-6 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center mr-2">
+                                          <span className="text-white font-semibold text-xs">
+                                            {(() => {
+                                              const words = department.name?.trim().split(' ') || [];
+                                              if (words.length === 1) {
+                                                const name = words[0];
+                                                return (name.charAt(0) + name.charAt(name.length - 1)).toUpperCase();
+                                              } else if (words.length >= 2) {
+                                                return words
+                                                  .slice(0, 2)
+                                                  .map(word => word.charAt(0).toUpperCase())
+                                                  .join('');
+                                              } else {
+                                                return 'DE';
+                                              }
+                                            })()}
                                           </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </td>
-                                
-                                <td className="px-2 sm:px-4 py-2 sm:py-3 text-sm align-top">
-                                  {currentUserRole === 'rcs-admin' ? (
-                                    <div className="flex flex-wrap gap-1">
-                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                        {department.typeCount} Types
-                                      </span>
-                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        {department.totalBranches} Branches
-                                      </span>
-                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                        {department.totalUsers} Users
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                      {department.userCount} Users
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-2 sm:px-4 py-2 sm:py-3 text-sm text-gray-800">
-  {department.username || '—'}
-</td>
-                                {(expandedReset === department.name || expandedProfile === department.name) ? (
-                                  <td colSpan={4} className="px-4 py-3 bg-gray-50">
-                                    {expandedReset === department.name && (
-                                      <div className="flex flex-col items-start space-y-2">
-                                        <div className="flex items-center space-x-2">
-                                          <input
-                                            type="password"
-                                            placeholder="Current"
-                                            value={tempPassword}
-                                            onChange={(e) => setTempPassword(e.target.value)}
-                                            className="w-26 px-2 py-1 text-xs border rounded"
-                                          />
-                                          <input
-                                            type="password"
-                                            placeholder="New"
-                                            value={newPassword}
-                                            onChange={(e) => setNewPassword(e.target.value)}
-                                            className="w-26 px-2 py-1 text-xs border rounded"
-                                          />
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              console.log(`Updated password for ${department.name}`);
-                                              setExpandedReset(null);
-                                              setTempPassword('');
-                                              setNewPassword('');
-                                            }}
-                                            className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
-                                          >
-                                            Save
-                                          </button>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setExpandedReset(null);
-                                              setTempPassword('');
-                                              setNewPassword('');
-                                            }}
-                                            className="px-2 py-1 text-xs bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
-                                          >
-                                            Cancel
-                                          </button>
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          <div className="text-sm font-medium text-gray-900 truncate">{department.name}</div>
                                         </div>
                                       </div>
-                                    )}
+                                    </td>
 
-                                    {expandedProfile === department.name && (
-                                      <div className="flex justify-between items-center px-2 py-2 w-full text-xs text-gray-800">
-                                        <div className="flex items-center divide-x divide-gray-300">
-                                          <div className="px-2"><strong>Name:</strong> {department.name}</div>
-                                          <div className="px-2"><strong>Username:</strong> {department.username || 'N/A'}</div>
-                                          <div className="px-2"><strong>Contact:</strong> {department.contact || 'N/A'}</div>
+                                    <td className="px-2 py-2 text-sm align-top">
+                                      {currentUserRole === 'rcs-admin' ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            {department.typeCount} Types
+                                          </span>
+                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            {department.totalBranches} Branches
+                                          </span>
+                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                            {department.totalUsers} Users
+                                          </span>
                                         </div>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setExpandedProfile(null);
-                                          }}
-                                          className="ml-2 px-2 py-1 text-xs bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
-                                        >
-                                          Close
-                                        </button>
-                                      </div>
-                                    )}
-                                  </td>
-                                ) : (
-                                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-sm">
-                                    <div className="flex flex-col items-center space-y-1 sm:space-y-2">
-                                      <div className="flex items-center justify-center space-x-1 sm:space-x-2">
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setExpandedReset(department.name);
-                                            setExpandedProfile(null);
-                                            setTempPassword('');
-                                            setNewPassword('');
-                                          }}
-                                          className="px-2 py-1 text-xs font-medium text-orange-600 border border-orange-200 rounded hover:bg-orange-50 transition-colors"
-                                        >
-                                          Reset Password
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setExpandedProfile(department.name);
-                                            setExpandedReset(null);
-                                          }}
-                                          className="px-2 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition-colors"
-                                        >
-                                          View Profile
-                                        </button>
-                                        <svg
-                                          className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 transition-transform"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          viewBox="0 0 24 24"
-                                        >
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                                        </svg>
-                                        {(currentUserRole === 'department' || currentUserRole === 'division') && (
+                                      ) : (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                          {department.userCount} Users
+                                        </span>
+                                      )}
+                                    </td>
+
+                                    <td className="px-2 py-2 text-sm text-gray-800">
+                                      {users[department.name]?.username || '—'}
+                                    </td>
+
+                                    <td className="px-2 py-2 text-sm">
+                                      <div className="flex flex-col items-center space-y-1">
+                                        <div className="flex items-center justify-center space-x-1">
                                           <button
                                             type="button"
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              setSelectedDepartmentName(department.name);
-                                              setShowUserFormModal(true);
-                                              setUserForm({ username: '', password: '', mobile: '' });
-                                              setUserFormErrors({});
+                                              setShowForm(false); // Hide create form
+                                              setExpandedReset(department.name);
+                                              setExpandedProfile(null);
+                                              setTempPassword('');
+                                              setNewPassword('');
                                             }}
-                                            className="px-2 py-1 text-xs font-medium text-sky-600 border border-sky-200 rounded hover:bg-sky-50 transition-colors"
+                                            className="px-2 py-1 text-xs font-medium text-orange-600 border border-orange-200 rounded hover:bg-orange-50 transition-colors"
                                           >
-                                            Add User
+                                            Reset Password
                                           </button>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </td>
-                                )}
-
-
-
-                              </tr>
-
-                              {/* Expanded Divisions Row */}
-                              {isExpanded && (
-                                <tr>
-                                  <td colSpan="4" className="px-2 sm:px-4 py-2 bg-gray-50">
-                                    <div className="space-y-2">
-                                      {isExpanded.divisions?.map((division, index) => {
-                                        const typeKey = `${isExpanded.name}-${division.name}`;
-                                        const isTypeExpanded = expandedTypes.includes(typeKey);
-
-                                        return (
-                                         <div key={division.id || index} className="border border-gray-200 rounded-lg">
-
-                                            {/* Type Header - Clickable */}
-                                            {/* Type Header - Non-clickable */}
-                                            <div
-                                              className="flex items-center justify-between p-2 bg-white rounded-t-lg"
+                            <button
+  type="button"
+  onClick={(e) => {
+    e.stopPropagation();
+    setShowForm(false); // Hide create form
+    setExpandedReset(null);
+    
+    // Get the username from the users data structure
+    const departmentData = users[department.name];
+    const departmentUsername = departmentData?.username || 'N/A';
+    
+    // Create enhanced profile data with username
+    const enhancedProfileData = {
+      ...department,
+      username: departmentUsername
+    };
+    
+    setExpandedProfile(department.name);
+    setExpandedProfileData(enhancedProfileData);
+  }}
+  className="px-2 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition-colors"
+>
+  Profile
+</button>
+                                          <svg
+                                            className="w-3 h-3 text-gray-400 transition-transform"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                                          </svg>
+                                          {(currentUserRole === 'department' || currentUserRole === 'division') && (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setShowForm(false); // Hide create form
+                                                setSelectedDepartmentName(department.name);
+                                                setShowUserFormModal(true);
+                                                setUserForm({ username: '', password: '', mobile: '' });
+                                                setUserFormErrors({});
+                                              }}
+                                              className="px-2 py-1 text-xs font-medium text-sky-600 border border-sky-200 rounded hover:bg-sky-50 transition-colors"
                                             >
-                                              <div className="flex items-center space-x-3">
-                                                <div className="w-6 h-6 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center">
-                                                  <span className="text-white font-medium text-xs">
-                                                    {currentUserRole === 'rcs-admin'
-                                                      ? (division.name ? division.name.charAt(0).toUpperCase() : 'T')
-                                                      : (division.username ? division.username.charAt(0).toUpperCase() : division.name ? division.name.charAt(0).toUpperCase() : 'U')
-                                                    }
-                                                  </span>
-                                                </div>
-                                                <div>
+                                              Add User
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+
+                                  {/* Expanded Divisions Row */}
+                                  {isExpanded && (
+                                    <tr>
+                                      <td colSpan="4" className="px-2 sm:px-4 py-2 bg-gray-50">
+                                        <div className="flex flex-col space-y-2 w-full">
+                                          {isExpanded.divisions?.map((division, index) => {
+                                            const typeKey = `${isExpanded.name}-${division.name}`;
+                                            const isTypeExpanded = expandedTypes.includes(typeKey);
+
+                                            return (
+                                              <div key={division.id || index} className="w-full border border-gray-200 rounded-lg">
+                                                {/* Type Header - Clickable */}
+                                                {/* Type Header - Non-clickable */}
+                                                <div
+                                                  className="flex items-center justify-between p-2 bg-white rounded-t-lg"
+                                                >
+                                                  <div className="flex items-center space-x-3">
+                                                    <div className="w-6 h-6 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center">
+                                                      <span className="text-white font-medium text-xs">
+                                                        {currentUserRole === 'rcs-admin'
+                                                          ? (division.name ? division.name.charAt(0).toUpperCase() : 'T')
+                                                          : (division.username ? division.username.charAt(0).toUpperCase() : division.name ? division.name.charAt(0).toUpperCase() : 'U')
+                                                        }
+                                                      </span>
+                                                    </div>
+                                                    <div>
+                                                      <div className="flex items-center space-x-2">
+                                                        <div className="text-sm font-medium text-gray-900">{division.name || division.username}</div>
+                                                        {currentUserRole === 'rcs-admin' && (
+                                                          <div className="flex gap-1">
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                              {division.branchCount} Branches
+                                                            </span>
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                              {division.userCount} Users
+                                                            </span>
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                      {currentUserRole !== 'rcs-admin' && (
+                                                        <div className="text-xs text-gray-500">{division.role}</div>
+                                                      )}
+                                                    </div>
+                                                  </div>
                                                   <div className="flex items-center space-x-2">
-                                                    <div className="text-sm font-medium text-gray-900">{division.name || division.username}</div>
-                                                    {currentUserRole === 'rcs-admin' && (
-                                                      <div className="flex gap-1">
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                          {division.branchCount} Branches
-                                                        </span>
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                          {division.userCount} Users
-                                                        </span>
+                                                    {division.mobile && (
+                                                      <div className="text-right">
+                                                        <div className="text-sm text-gray-600">{division.mobile}</div>
                                                       </div>
                                                     )}
+
                                                   </div>
-                                                  {currentUserRole !== 'rcs-admin' && (
-                                                    <div className="text-xs text-gray-500">{division.role}</div>
-                                                  )}
                                                 </div>
-                                              </div>
-                                              <div className="flex items-center space-x-2">
-                                                {division.mobile && (
-                                                  <div className="text-right">
-                                                    <div className="text-sm text-gray-600">{division.mobile}</div>
-                                                  </div>
-                                                )}
 
-                                              </div>
-                                            </div>
+                                                {/* Users List - Expandable */}
+                                                {isTypeExpanded && currentUserRole === 'rcs-admin' && (
+                                                  <div className="border-t border-gray-200 bg-gray-50 p-3">
+                                                    <div className="space-y-2">
+                                                      {/* Get users from the API data structure */}{(() => {
+                                                        const departmentData = users[isExpanded.name] || {};
+                                                        const typeData = departmentData[division.name] || {};
+                                                        const allUsers = [];
 
-                                            {/* Users List - Expandable */}
-                                            {isTypeExpanded && currentUserRole === 'rcs-admin' && (
-                                              <div className="border-t border-gray-200 bg-gray-50 p-3">
-                                                <div className="space-y-2">
-                                                  {/* Get users from the API data structure */}{(() => {
-                                                    const departmentData = users[isExpanded.name] || {};
-                                                    const typeData = departmentData[division.name] || {};
-                                                    const allUsers = [];
-
-                                                    // Collect all users from all branches under this type
-                                                    Object.keys(typeData).forEach(branchKey => {
-                                                      const branchUsers = typeData[branchKey];
-                                                      if (Array.isArray(branchUsers)) {
-                                                        branchUsers.forEach(user => {
-                                                          allUsers.push({
-                                                            ...user,
-                                                            branchName: branchKey || user.branch || user.location || 'Unknown Branch'
-                                                          });
+                                                        // Collect all users from all branches under this type
+                                                        Object.keys(typeData).forEach(branchKey => {
+                                                          const branchUsers = typeData[branchKey];
+                                                          if (Array.isArray(branchUsers)) {
+                                                            branchUsers.forEach(user => {
+                                                              allUsers.push({
+                                                                ...user,
+                                                                branchName: branchKey || user.branch || user.location || 'Unknown Branch'
+                                                              });
+                                                            });
+                                                          }
                                                         });
-                                                      }
-                                                    });
 
-                                                    return allUsers.length > 0 ? (allUsers.map((user, userIndex) => (
-                                                      <div key={`${user.id}-${userIndex}`} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 bg-white rounded border border-gray-100 space-y-2 sm:space-y-0">
-                                                        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
-                                                          <div className="min-w-0 flex-1">
-                                                            <div className="text-xs sm:text-sm font-medium text-gray-900">
-                                                              <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 mr-1 sm:mr-2">
-                                                                {user.branchName}
-                                                              </span>
-                                                              <span className="break-words">{user.name} | {user.username}</span>
+                                                        return allUsers.length > 0 ? (allUsers.map((user, userIndex) => (
+                                                          <div key={`${user.id}-${userIndex}`} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 bg-white rounded border border-gray-100 space-y-2 sm:space-y-0">
+                                                            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                                                              <div className="min-w-0 flex-1">
+                                                                <div className="text-xs sm:text-sm font-medium text-gray-900">
+                                                                  <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 mr-1 sm:mr-2">
+                                                                    {user.branchName}
+                                                                  </span>
+                                                                  <span className="break-words">{user.name} | {user.username}</span>
+                                                                </div>
+                                                              </div>
+                                                            </div>
+                                                            <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+                                                              <button className="px-2 sm:px-3 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition-colors">
+                                                                View Profile
+                                                              </button>
                                                             </div>
                                                           </div>
-                                                        </div>
-                                                        <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-                                                          <button className="px-2 sm:px-3 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition-colors">
-                                                            View Profile
-                                                          </button>
-                                                        </div>
-                                                      </div>
-                                                    ))
-                                                    ) : (
-                                                      <div className="text-center text-gray-500 text-sm py-2">
-                                                        No users found in this type
-                                                      </div>
-                                                    );
-                                                  })()}
-                                                </div>
+                                                        ))
+                                                        ) : (
+                                                          <div className="text-center text-gray-500 text-sm py-2">
+                                                            No users found in this type
+                                                          </div>
+                                                        );
+                                                      })()}
+                                                    </div>
+                                                  </div>
+                                                )}
                                               </div>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                                            );
+                                          })}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </tbody>
+
+                        </table>
+
+                      </div>
+                      {(expandedReset || expandedProfile) && (
+                        <div className="w-80 transition-all duration-300 bg-white border rounded shadow p-3 space-y-3">
+                          {expandedReset && (
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-800 mb-2">
+                                Reset Password for <span className="text-blue-600">{expandedReset}</span>
+                              </h3>
+
+                              <div className="space-y-2">
+                                <label className="block text-xs text-gray-500">Password</label>
+                                <input
+                                  type="text"
+                                  value={tempPassword}
+                                  onChange={(e) => setTempPassword(e.target.value)}
+                                  className="w-full px-2 py-1.5 border rounded text-sm"
+                                  placeholder="Enter new password"
+                                />
+
+                                <div className="flex justify-end space-x-2 pt-1">
+                                  <button
+                                    onClick={() => {
+                                      // 🔁 Replace with API call if needed
+                                      console.log(`Saving new password: ${tempPassword}`);
+                                      setExpandedReset(null);
+                                      setTempPassword('');
+                                    }}
+                                    className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setExpandedReset(null);
+                                      setTempPassword('');
+                                    }}
+                                    className="px-3 py-1 bg-gray-300 text-xs rounded text-gray-700 hover:bg-gray-400"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                          )}
+
+{expandedProfile && !expandedReset && (
+  <div className="space-y-3">
+    <h3 className="text-sm font-semibold text-gray-800">
+      Profile: <span className="text-blue-600">{expandedProfileData?.name || 'N/A'}</span>
+    </h3>
+    
+    <div className="space-y-2 text-xs text-gray-800">
+      <div className="flex items-center">
+        <label className="w-20 text-gray-600 font-medium">Name:</label>
+        <input
+          type="text"
+          value={expandedProfileData?.name || ''}
+          onChange={(e) => setExpandedProfileData({...expandedProfileData, name: e.target.value})}
+          className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+        />
+      </div>
+      <div className="flex items-center">
+        <label className="w-20 text-gray-600 font-medium">Username:</label>
+        <input
+          type="text"
+          value={expandedProfileData?.username || ''}
+          onChange={(e) => setExpandedProfileData({...expandedProfileData, username: e.target.value})}
+          className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+        />
+      </div>
+    </div>
+    
+    <div className="pt-1 flex justify-end space-x-2">
+      <button
+        onClick={async () => {
+          // Save changes here - add your API call
+          console.log('Saving profile changes:', expandedProfileData);
+          // Add API call to save changes
+          setExpandedProfile(null);
+        }}
+        className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+      >
+        Save
+      </button>
+      <button
+        onClick={() => setExpandedProfile(null)}
+        className="px-3 py-1 text-xs bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -2189,7 +2317,7 @@ const UserManagement = () => {
             </div>
 
             <div className={`transition-all duration-500 ease-in-out transform ${showForm
-              ? 'xl:col-span-3 lg:col-span-1 translate-x-0 opacity-100 mt-8 xl:mt-0'
+              ? 'xl:col-span-1 lg:col-span-1 translate-x-0 opacity-100 mt-8 xl:mt-0'
               : 'xl:col-span-0 lg:col-span-0 translate-x-full opacity-0 overflow-hidden w-0'
               } ${showForm ? 'block' : 'hidden xl:block'}`}>
               <div className="bg-white shadow-xl rounded-2xl overflow-hidden h-fit">

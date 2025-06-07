@@ -18,6 +18,13 @@ const IndentCreation = () => {
   const [showIndentDetails, setShowIndentDetails] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
 
+  // New states for order submission
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState(false);
+  const [orderError, setOrderError] = useState('');
+  const [savedSegments, setSavedSegments] = useState([]); // Store segments from the saved indent
+  const [savedDays, setSavedDays] = useState(0); // Store days from the saved indent
+
   const [editableDate, setEditableDate] = useState(() => {
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -229,6 +236,14 @@ const IndentCreation = () => {
         const processedDetails = processIndentDetails(result.data || []);
         setIndentDetails(processedDetails);
         setUserInfo(result.user); // Store user info
+        
+        // Save the segments and days for order submission
+        setSavedSegments(validSegments.map(seg => ({
+          id: parseInt(seg.segmentId),
+          persons: parseInt(seg.nos)
+        })));
+        setSavedDays(parseInt(indentForDays));
+        
         setShowIndentDetails(true);
         // Reset form to initial state
         setSegments([{ segmentId: '', category: '', diet: '', nos: '' }]);
@@ -242,6 +257,69 @@ const IndentCreation = () => {
       console.error('Error saving indent:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle order submission
+  const handleSubmitOrder = async () => {
+    setOrderLoading(true);
+    setOrderError('');
+    setOrderSuccess(false);
+
+    try {
+      const token = localStorage.getItem('authToken');
+      
+      // Prepare items object from editable orders
+      const items = {};
+      indentDetails.forEach(item => {
+        const editableOrderValue = parseFloat(item.editableOrder) || 0;
+        if (editableOrderValue > 0) {
+          items[item.id.toString()] = editableOrderValue.toFixed(3);
+        }
+      });
+
+      // Validate that at least one item has quantity
+      if (Object.keys(items).length === 0) {
+        setOrderError('Please add quantities for at least one item');
+        setOrderLoading(false);
+        return;
+      }
+
+      const orderPayload = {
+        days: savedDays,
+        segment: savedSegments,
+        items: items
+      };
+
+      console.log('Submitting order with payload:', orderPayload);
+
+      const response = await fetch(`${API_BASE_URL}/order/indent`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderPayload)
+      });
+
+      const result = await response.json();
+
+      if (response.ok && !result.error) {
+        setOrderSuccess(true);
+        alert('Order submitted successfully!');
+        
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => {
+          setOrderSuccess(false);
+        }, 3000);
+      } else {
+        setOrderError(result.message || 'Failed to submit order');
+      }
+    } catch (err) {
+      setOrderError('Network error while submitting order');
+      console.error('Error submitting order:', err);
+    } finally {
+      setOrderLoading(false);
     }
   };
 
@@ -380,53 +458,39 @@ const IndentCreation = () => {
               </>
             ) : (
               <>
-                <div className="flex justify-between items-center mb-6">
-                  <h1 className="text-xl font-semibold text-gray-800">Indent Details</h1>
-                  <button
-                    onClick={() => {
-                      setShowIndentDetails(false);
-                      setIndentDetails([]);
-                      setUserInfo(null);
-                    }}
-                    className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition"
-                  >
-                    Create New Indent
-                  </button>
-                </div>
+         
 
-                {/* User Information Section */}
-                {userInfo && (
+                {/* Order Success Message */}
+                {orderSuccess && (
+                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md text-green-600 text-sm">
+                    Order submitted successfully!
+                  </div>
+                )}
+
+                {/* Order Error Message */}
+                {orderError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+                    {orderError}
+                  </div>
+                )}
+
+                {/* User Information Section - Only showing department, location, and contact */}
+                {userInfo && userInfo.detail && (
                   <div className="bg-blue-50 rounded-lg p-4 mb-6 border border-blue-200">
                     <h3 className="text-lg font-semibold text-blue-800 mb-2">User Information</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                       <div>
-                        <span className="font-medium text-gray-700">Name:</span>
-                        <span className="ml-2 text-gray-600">{userInfo.name}</span>
+                        <span className="font-medium text-gray-700">Department:</span>
+                        <span className="ml-2 text-gray-600">{userInfo.detail.department}</span>
                       </div>
                       <div>
-                        <span className="font-medium text-gray-700">Username:</span>
-                        <span className="ml-2 text-gray-600">{userInfo.username}</span>
+                        <span className="font-medium text-gray-700">Location:</span>
+                        <span className="ml-2 text-gray-600">{userInfo.detail.location}</span>
                       </div>
                       <div>
-                        <span className="font-medium text-gray-700">Role:</span>
-                        <span className="ml-2 text-gray-600 capitalize">{userInfo.role}</span>
+                        <span className="font-medium text-gray-700">Contact:</span>
+                        <span className="ml-2 text-gray-600">{userInfo.detail.contact}</span>
                       </div>
-                      {userInfo.detail && (
-                        <>
-                          <div>
-                            <span className="font-medium text-gray-700">Branch Type:</span>
-                            <span className="ml-2 text-gray-600">{userInfo.detail.branch_type}</span>
-                          </div>
-                          <div>
-                            <span className="font-medium text-gray-700">Branch:</span>
-                            <span className="ml-2 text-gray-600">{userInfo.detail.branch}</span>
-                          </div>
-                          <div>
-                            <span className="font-medium text-gray-700">Location:</span>
-                            <span className="ml-2 text-gray-600">{userInfo.detail.location}</span>
-                          </div>
-                        </>
-                      )}
                     </div>
                   </div>
                 )}
@@ -474,6 +538,36 @@ const IndentCreation = () => {
                       ))}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Submit Order Button */}
+                <div className="mt-6 flex justify-end">
+                  <button 
+                    onClick={handleSubmitOrder}
+                    disabled={orderLoading || orderSuccess}
+                    className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  >
+                    {orderLoading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Submitting Order...</span>
+                      </>
+                    ) : orderSuccess ? (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Order Submitted</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                        <span>Submit Order</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </>
             )}
