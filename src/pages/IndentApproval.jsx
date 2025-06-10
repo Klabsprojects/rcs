@@ -206,7 +206,7 @@ const IndentApproval = () => {
                                                 <th className="border border-gray-300 px-4 py-2 text-center">Required</th>
                                                 <th className="border border-gray-300 px-4 py-2 text-center">Stock</th>
                                                 <th className="border border-gray-300 px-4 py-2 text-center">Buffer</th>
-                                                <th className="border border-gray-300 px-4 py-2 text-center">Order</th>
+                                                <th className="border border-gray-300 px-4 py-2 text-center">Orders</th>
                                                 <th className="border border-gray-300 px-4 py-2 text-center">Unit</th>
                                               </tr>
                                             </thead>
