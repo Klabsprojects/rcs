@@ -42,7 +42,7 @@ const AttendanceCreation = () => {
         if (response.ok && !result.error) {
           setSegmentOptions(result.data || []);
         } else {
-          setError('Failed to fetch segments');
+     
         }
       } catch (err) {
         setError('Network error while fetching segments');

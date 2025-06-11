@@ -17,6 +17,12 @@ const LoginPage = () => {
     }));
   };
 
+  // Add keydown handler for Enter key
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSubmit(e);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,7 +50,6 @@ const LoginPage = () => {
         localStorage.setItem('user', JSON.stringify(data.user));
         localStorage.setItem('loginResponse', JSON.stringify(data));
         
-        // window.location.href = '/user-creation';
         const role = data.user?.role?.toLowerCase?.();
 
         // Route based on user role
@@ -90,7 +95,7 @@ const LoginPage = () => {
                 </p>
               </div>
 
-              <div className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     Username
@@ -100,6 +105,7 @@ const LoginPage = () => {
                     name="username"
                     value={formData.username}
                     onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
                     placeholder="Enter your username"
                     className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl text-sm bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all duration-300"
                     required
@@ -115,6 +121,7 @@ const LoginPage = () => {
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
                     placeholder="Enter your password"
                     className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl text-sm bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all duration-300"
                     required
@@ -128,7 +135,7 @@ const LoginPage = () => {
                 )}
 
                 <button
-                  onClick={handleSubmit}
+                  type="submit"
                   disabled={loading}
                   className="w-full py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold transition-all duration-300 hover:from-blue-700 hover:to-blue-800 hover:shadow-lg hover:scale-105 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed"
                 >
@@ -141,7 +148,7 @@ const LoginPage = () => {
                     'Sign In'
                   )}
                 </button>
-              </div>
+              </form>
             </div>
           </div>
 

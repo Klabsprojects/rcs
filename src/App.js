@@ -12,6 +12,7 @@ import UserCreation from './components/UserCreation';
 import LoginPage from './pages/LoginPage';
 import AttendanceCreation from './pages/Attendance';
 import IndentApproval from './pages/IndentApproval';
+import IndentListing from './pages/AdminIndent';
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('authToken');
@@ -77,6 +78,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AttendanceCreation />
+                </ProtectedRoute>
+              }
+            />
+                  <Route
+              path="/indent-request"
+              element={
+                <ProtectedRoute>
+                  <IndentListing />
                 </ProtectedRoute>
               }
             />

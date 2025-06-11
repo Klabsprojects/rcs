@@ -53,7 +53,7 @@ const [editingInventory, setEditingInventory] = useState(false);
           setEaterTypes([]);
         }
       } else {
-        setError('Failed to fetch eater types');
+    
       }
     } catch (err) {
       console.error('Error fetching eater types:', err);
@@ -87,7 +87,7 @@ const [editingInventory, setEditingInventory] = useState(false);
           });
         }
       } else {
-        setError('Failed to fetch inventory master');
+   
       }
     } catch (err) {
       console.error('Error fetching inventory master:', err);

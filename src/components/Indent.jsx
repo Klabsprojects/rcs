@@ -13,7 +13,7 @@ const IndentCreation = () => {
   const [showPopup, setShowPopup] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+
   const [indentDetails, setIndentDetails] = useState([]);
   const [showIndentDetails, setShowIndentDetails] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
@@ -58,10 +58,10 @@ const IndentCreation = () => {
         if (response.ok && !result.error) {
           setSegmentOptions(result.data || []);
         } else {
-          setError('Failed to fetch segments');
+       
         }
       } catch (err) {
-        setError('Network error while fetching segments');
+   
         console.error('Error fetching segments:', err);
       }
     };
@@ -91,10 +91,10 @@ const IndentCreation = () => {
             setIndentForDays(result.data[0].order.toString());
           }
         } else {
-          setError('Failed to fetch inventory');
+       
         }
       } catch (err) {
-        setError('Network error while fetching inventory');
+ 
         console.error('Error fetching inventory:', err);
       }
     };
@@ -121,7 +121,7 @@ const IndentCreation = () => {
         if (response.ok && !result.error) {
           setIndents(result.data || []);
         } else {
-          setListError('Failed to fetch indents');
+         
         }
       } catch (err) {
         setListError('Network error while fetching indents');
@@ -186,7 +186,7 @@ const IndentCreation = () => {
       if (response.ok && !result.error) {
         setOrderDetails(result.data || result);
       } else {
-        setDetailsError('Failed to fetch order details');
+
       }
     } catch (err) {
       setDetailsError('Network error while fetching order details');
@@ -324,17 +324,17 @@ const IndentCreation = () => {
     const validSegments = segments.filter(seg => seg.segmentId && seg.nos);
     
     if (validSegments.length === 0) {
-      setError('Please add at least one valid segment with quantity');
+   
       return;
     }
 
     if (!indentForDays || indentForDays.trim() === '') {
-      setError('Please enter indent for days');
+      
       return;
     }
 
     setLoading(true);
-    setError('');
+
 
     try {
       const token = localStorage.getItem('authToken');
@@ -376,7 +376,7 @@ const IndentCreation = () => {
         // Reset form to initial state
         setSegments([{ segmentId: '', category: '', diet: '', nos: '' }]);
         setIndentForDays(inventoryData && inventoryData.data && inventoryData.data.length > 0 ? inventoryData.data[0].order.toString() : '');
-        setError('');
+
         
         // Refresh the indents list
         const fetchIndents = async () => {
@@ -402,10 +402,10 @@ const IndentCreation = () => {
         
         fetchIndents();
       } else {
-        setError(result.message || 'Failed to save indent');
+       
       }
     } catch (err) {
-      setError('Network error while saving');
+      
       console.error('Error saving indent:', err);
     } finally {
       setLoading(false);
@@ -503,12 +503,7 @@ const IndentCreation = () => {
             {!showIndentDetails && !showExpandedView ? (
               <>
                 <h1 className="text-xl font-semibold text-center mb-4 text-gray-800">Indent Creation</h1>
-            
-                {error && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
-                    {error}
-                  </div>
-                )}
+        
 
                 <div className="mb-4 flex justify-between items-center">
                   <div className="flex items-center gap-4">
@@ -624,11 +619,7 @@ const IndentCreation = () => {
                   </button>
                 </div>
 
-                {detailsError && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
-                    {detailsError}
-                  </div>
-                )}
+        
 
                 {detailsLoading ? (
                   <div className="text-center py-8">
@@ -705,13 +696,7 @@ const IndentCreation = () => {
                   </div>
                 )}
 
-                {/* Order Error Message */}
-                {orderError && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
-                    {orderError}
-                  </div>
-                )}
-
+         
                 {/* User Information Section - Only showing department, location, and contact */}
                 {userInfo && userInfo.detail && (
                   <div className="bg-blue-50 rounded-lg p-4 mb-6 border border-blue-200">
@@ -821,11 +806,7 @@ const IndentCreation = () => {
             
       
 
-            {listError && (
-              <div className="mb-4 p-2 bg-red-50 border border-red-200 rounded-md text-red-600 text-xs">
-                {listError}
-              </div>
-            )}
+     
 
             {listLoading ? (
               <div className="flex items-center justify-center py-8">

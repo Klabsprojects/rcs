@@ -9,6 +9,14 @@ const IndentApproval = () => {
   const [orderDetails, setOrderDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState('');
+  
+  // New states for approve/reject functionality
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionSuccess, setActionSuccess] = useState('');
+  const [pdfFileName, setPdfFileName] = useState({});
 
   useEffect(() => {
     // Fetch indents from API
@@ -29,7 +37,7 @@ const IndentApproval = () => {
         if (response.ok && !result.error) {
           setIndents(result.data || []);
         } else {
-          setError('Failed to fetch indents');
+     
         }
       } catch (err) {
         setError('Network error while fetching indents');
@@ -61,7 +69,7 @@ const IndentApproval = () => {
       if (response.ok && !result.error) {
         setOrderDetails(result.data || result);
       } else {
-        setDetailsError('Failed to fetch order details');
+
       }
     } catch (err) {
       setDetailsError('Network error while fetching order details');
@@ -69,6 +77,139 @@ const IndentApproval = () => {
     } finally {
       setDetailsLoading(false);
     }
+  };
+
+  // Handle approve action
+  const handleApprove = async (orderId) => {
+    setActionLoading(true);
+    setActionSuccess('');
+    setError('');
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/order/${orderId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: "Approve"
+        })
+      });
+
+      const result = await response.json();
+      
+      if (response.ok && !result.error) {
+        setActionSuccess('Order approved successfully!');
+        
+        // Update the indent status in local state
+        setIndents(prevIndents => 
+          prevIndents.map(indent => 
+            indent.id === orderId 
+              ? { ...indent, status: 'approved' }
+              : indent
+          )
+        );
+        
+        // Store PDF filename for the approved order
+        if (result.data && result.data.file_name) {
+          setPdfFileName(prev => ({
+            ...prev,
+            [orderId]: result.data.file_name
+          }));
+          setActionSuccess('Order approved successfully! PDF generated.');
+        }
+        
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => setActionSuccess(''), 3000);
+      } else {
+        setError(result.message || 'Failed to approve order');
+      }
+    } catch (err) {
+      setError('Network error while approving order');
+      console.error('Error approving order:', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle reject action// Handle reject action
+const handleReject = async () => {
+  if (!rejectReason.trim()) {
+    setError('Please provide a reason for rejection');
+    return;
+  }
+
+  setActionLoading(true);
+  setActionSuccess('');
+  setError('');
+  
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/order/${selectedOrderId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        status: "Reject",
+        remarks: rejectReason.trim()  // Changed from 'reason' to 'remarks'
+      })
+    });
+
+    const result = await response.json();
+    
+    if (response.ok && !result.error) {
+      setActionSuccess('Order rejected successfully!');
+      // Update the indent status in local state
+      setIndents(prevIndents => 
+        prevIndents.map(indent => 
+          indent.id === selectedOrderId 
+            ? { ...indent, status: 'rejected' }
+            : indent
+        )
+      );
+      // Close modal and reset state
+      setShowRejectModal(false);
+      setRejectReason('');
+      setSelectedOrderId(null);
+      // Auto-hide success message after 3 seconds
+      setTimeout(() => setActionSuccess(''), 3000);
+    } else {
+      setError(result.message || 'Failed to reject order');
+    }
+  } catch (err) {
+    setError('Network error while rejecting order');
+    console.error('Error rejecting order:', err);
+  } finally {
+    setActionLoading(false);
+  }
+};
+  // Handle PDF view
+  const handleViewPdf = (indent) => {
+    const fileName = getPdfFileName(indent);
+    if (fileName) {
+      const pdfUrl = `https://rcs-dms.onlinetn.com/public/pdf/${fileName}`;
+      window.open(pdfUrl, '_blank');
+    }
+  };
+
+  // Open reject modal
+  const openRejectModal = (orderId) => {
+    setSelectedOrderId(orderId);
+    setShowRejectModal(true);
+    setRejectReason('');
+    setError('');
+  };
+
+  // Close reject modal
+  const closeRejectModal = () => {
+    setShowRejectModal(false);
+    setRejectReason('');
+    setSelectedOrderId(null);
+    setError('');
   };
 
   // Handle expand/collapse of order details
@@ -120,6 +261,22 @@ const IndentApproval = () => {
     }
   };
 
+  // Check if order can be approved/rejected (not already processed)
+  const canTakeAction = (status) => {
+    const lowerStatus = status?.toLowerCase();
+    return lowerStatus !== 'approved' && lowerStatus !== 'rejected';
+  };
+
+  // Check if PDF is available for an order
+  const getPdfFileName = (indent) => {
+    // First check if order has existing pdf_url from API
+    if (indent.pdf_url) {
+      return indent.pdf_url;
+    }
+    // Then check if we have a newly generated PDF filename
+    return pdfFileName[indent.id];
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6 bg-gray-50 rounded-lg">
       <div className="bg-white shadow rounded-lg p-6">
@@ -128,6 +285,12 @@ const IndentApproval = () => {
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
             {error}
+          </div>
+        )}
+
+        {actionSuccess && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md text-green-600 text-sm">
+            {actionSuccess}
           </div>
         )}
 
@@ -166,12 +329,26 @@ const IndentApproval = () => {
                           <td className="border border-gray-300 px-4 py-2 text-center">{indent.days}</td>
                           <td className="border border-gray-300 px-4 py-2 text-center">{calculateTotal(indent)}</td>
                           <td className="border border-gray-300 px-4 py-2 text-center">
-                            <button 
-                              onClick={() => handleToggleExpand(indent.id)}
-                              className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition"
-                            >
-                              {expandedOrder === indent.id ? 'Hide' : 'View'}
-                            </button>
+                            <div className="flex gap-2 justify-center">
+                              <button 
+                                onClick={() => handleToggleExpand(indent.id)}
+                                className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition"
+                              >
+                                {expandedOrder === indent.id ? 'Hide' : 'View'}
+                              </button>
+                              {indent.status?.toLowerCase() === 'approved' && getPdfFileName(indent) && (
+                    <button
+  onClick={() => handleViewPdf(indent)}
+  className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition flex items-center gap-1"
+  title="View PDF"
+>
+  <svg className="w-3 h-3" fill="none" stroke="red" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+  </svg>
+  PDF
+</button>
+                              )}
+                            </div>
                           </td>
                         </tr>
 
@@ -232,21 +409,35 @@ const IndentApproval = () => {
                                       </div>
                                     )}
 
-                                    {/* Approve/Reject Buttons - Moved here */}
-                                    <div className="flex justify-center gap-4 mt-6">
-                                      <button className="px-6 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition flex items-center gap-2">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                        Approve
-                                      </button>
-                                      <button className="px-6 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition flex items-center gap-2">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                        Reject
-                                      </button>
-                                    </div>
+                                    {/* Approve/Reject Buttons */}
+                                    {canTakeAction(indent.status) ? (
+                                      <div className="flex justify-center gap-4 mt-6">
+                                        <button 
+                                          onClick={() => handleApprove(indent.id)}
+                                          disabled={actionLoading}
+                                          className="px-6 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                          {actionLoading ? (
+                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                          ) : (
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                          )}
+                                          Approve
+                                        </button>
+                                        <button 
+                                          onClick={() => openRejectModal(indent.id)}
+                                          disabled={actionLoading}
+                                          className="px-6 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                          </svg>
+                                          Reject
+                                        </button>
+                                      </div>
+                                    ) : null}
                                   </div>
                                 ) : (
                                   <div className="text-center py-8 text-gray-500">
@@ -272,6 +463,44 @@ const IndentApproval = () => {
           </div>
         )}
       </div>
+
+      {/* Reject Reason Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Reject Order</h2>
+            <p className="text-gray-600 mb-4">Please provide a reason for rejecting this order:</p>
+            
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Enter rejection reason..."
+              className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              rows="4"
+            />
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={closeRejectModal}
+                disabled={actionLoading}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={actionLoading || !rejectReason.trim()}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {actionLoading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : null}
+                Reject Order
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

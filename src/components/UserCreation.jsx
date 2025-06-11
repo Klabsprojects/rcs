@@ -111,6 +111,8 @@ const UserManagement = () => {
 
   const [expandedProfile, setExpandedProfile] = useState(null);
 
+  const [isEditing, setIsEditing] = useState(false);
+
 
 
   // Get the appropriate role for creation based on current user role
@@ -506,27 +508,28 @@ const UserManagement = () => {
         const departmentData = users[departmentName] || {};
 
         // Filter out both 'username' and 'id' to get actual branch types
-        const typeCount = Object.keys(departmentData).filter(key =>
-          key !== 'username' && key !== 'id'
-        ).length;
+        // Filter out both 'username', 'id', and 'mobile' to get actual branch types
+const typeCount = Object.keys(departmentData).filter(key =>
+  key !== 'username' && key !== 'id' && key !== 'mobile'
+).length;
 
-        // Calculate total branches and users only for actual branch types
-        let totalBranches = 0;
-        let totalUsers = 0;
+// Calculate total branches and users only for actual branch types
+let totalBranches = 0;
+let totalUsers = 0;
 
-        Object.entries(departmentData).forEach(([key, branches]) => {
-          // Skip username and id fields
-          if (key !== 'username' && key !== 'id') {
-            if (typeof branches === 'object' && branches !== null && !Array.isArray(branches)) {
-              totalBranches += Object.keys(branches).length;
-              Object.values(branches).forEach(branchUsers => {
-                if (Array.isArray(branchUsers)) {
-                  totalUsers += branchUsers.length;
-                }
-              });
-            }
-          }
-        });
+Object.entries(departmentData).forEach(([key, branches]) => {
+  // Skip username, id, and mobile fields
+  if (key !== 'username' && key !== 'id' && key !== 'mobile') {
+    if (typeof branches === 'object' && branches !== null && !Array.isArray(branches)) {
+      totalBranches += Object.keys(branches).length;
+      Object.values(branches).forEach(branchUsers => {
+        if (Array.isArray(branchUsers)) {
+          totalUsers += branchUsers.length;
+        }
+      });
+    }
+  }
+});
 
         return {
           id: departmentName,
@@ -564,9 +567,9 @@ const UserManagement = () => {
 
       if (currentUserRole === 'rcs-admin') {
         const departmentData = users[department.name] || {};
-        const types = Object.keys(departmentData)
-          .filter(key => key !== 'username') // Exclude username field
-          .map(typeName => {
+const types = Object.keys(departmentData)
+  .filter(key => key !== 'username' && key !== 'id' && key !== 'mobile') // Exclude username, id, and mobile fields
+  .map(typeName => {
             const branches = departmentData[typeName] || {};
             const totalUsers = Object.values(branches).reduce((total, branchUsers) => {
               return total + (Array.isArray(branchUsers) ? branchUsers.length : 0);
@@ -1363,7 +1366,7 @@ const UserManagement = () => {
                                     setExpandedBranchId(division.id);
                                   }
                                 }}
-                                className="px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 hover:bg-green-200 transition"
+                                className="px-4 py-2 text-sm font-medium rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition shadow-sm border border-green-200"
                               >
                                 Branches ({division.details ? division.details.length : 0})
                               </button>
@@ -1381,11 +1384,10 @@ const UserManagement = () => {
                                     location: '',
                                     contact: '',
                                     address: '',
-
                                     suffix: initialSuffix
                                   });
                                 }}
-                                className="px-3 py-1 text-xs font-medium rounded-full bg-sky-100 text-sky-700 hover:bg-sky-200 transition"
+                                className="px-4 py-2 text-sm font-medium rounded-lg bg-sky-100 text-sky-700 hover:bg-sky-200 transition shadow-sm border border-sky-200"
                               >
                                 Add Branch
                               </button>
@@ -1430,7 +1432,6 @@ const UserManagement = () => {
                                       <div className="text-sm font-semibold text-gray-800">
                                         {branchItem.name}
                                       </div>
-
                                       <button
                                         onClick={() =>
                                           setExpandedUsers(prev => ({
@@ -1438,7 +1439,7 @@ const UserManagement = () => {
                                             [branchItem.id]: !prev[branchItem.id]
                                           }))
                                         }
-                                        className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition"
+                                        className="px-4 py-2 text-sm font-medium bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition shadow-sm border border-purple-200"
                                       >
                                         Users ({branchItem.users?.length || 0})
                                       </button>
@@ -1472,7 +1473,7 @@ const UserManagement = () => {
                                                     View
                                                   </button>
 
-                                                  <button
+                                                  {/* <button
                                                     onClick={() => {
                                                       setSelectedUserView(null);
                                                       setSelectedUserEdit(user);
@@ -1480,7 +1481,7 @@ const UserManagement = () => {
                                                     className="px-2 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition-colors"
                                                   >
                                                     Edit
-                                                  </button>
+                                                  </button> */}
                                                   <button
                                                     onClick={() => {
                                                       setSelectedUserEdit(null);
@@ -1562,7 +1563,20 @@ const UserManagement = () => {
                             </div>
                           )
                       )}
+
                     </div>
+                    <div className="flex justify-end pt-4 border-t border-gray-200">
+                      <button
+                        onClick={() => {
+                          setSelectedUserView(null);
+                          setSelectedUserEdit(selectedUserView);
+                        }}
+                        className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded hover:bg-blue-50 transition"
+                      >
+                        Edit
+                      </button>
+                    </div>
+
                   </div>
                 )}
                 {selectedUserEdit && (
@@ -1578,38 +1592,6 @@ const UserManagement = () => {
                     </div>
 
                     <div className="divide-y divide-gray-100">
-
-
-                      <div className="grid grid-cols-3 gap-4 py-2 items-center">
-                        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
-                          Username
-                        </div>
-                        <div className="col-span-2 pl-2">
-                          <input
-                            type="text"
-                            value={selectedUserEdit.username || ''}
-                            onChange={(e) => setSelectedUserEdit({ ...selectedUserEdit, username: e.target.value })}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
-                            placeholder="Enter username"
-                          />
-                        </div>
-                      </div>
-
-                      {/* <div className="grid grid-cols-3 gap-4 py-2 items-center">
-                        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
-                          Password
-                        </div>
-                        <div className="col-span-2 pl-2">
-                          <input
-                            type="password"
-                            value={selectedUserEdit.newPassword || ''}
-                            onChange={(e) => setSelectedUserEdit({ ...selectedUserEdit, newPassword: e.target.value })}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
-                            placeholder="Enter new password"
-                          />
-                        </div>
-                      </div> */}
-
                       <div className="grid grid-cols-3 gap-4 py-2 items-center">
                         <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
                           Name
@@ -1688,18 +1670,45 @@ const UserManagement = () => {
                         Cancel
                       </button>
                       <button
-                        onClick={() => {
-                          // Just close the edit form, skip API call
-                          setSelectedUserEdit(null);
+                        onClick={async () => {
+                          try {
+                            // Get the token from localStorage or wherever you store it
+                            const token = localStorage.getItem('authToken') || localStorage.getItem('token');
 
-                          // Optional: If you want to simulate a success toast
-                          setSubmitSuccess(true);
-                          setTimeout(() => setSubmitSuccess(false), 2000);
+                            const response = await fetch(`https://rcs-dms.onlinetn.com/api/v1/user/${selectedUserEdit.id}`, {
+                              method: "PUT",
+                              headers: {
+                                "Content-Type": "application/json",
+                                "Authorization": `Bearer ${token}`,
+                              },
+                              body: JSON.stringify({
+                                name: newUserInfo.name,
+                                mobile: newUserInfo.contact,
+                                designation: newUserInfo.designation,
+                                salutation: newUserInfo.salutation, // Added salutation since it's in your form
+                              }),
+                            });
+
+                            if (!response.ok) {
+                              const errorData = await response.text();
+                              console.error("API Error:", errorData);
+                              throw new Error(`Failed to update user: ${response.status}`);
+                            }
+
+                            // Optionally: Show success toast or update UI
+                            setSubmitSuccess(true);
+                            setTimeout(() => setSubmitSuccess(false), 2000);
+                            setSelectedUserEdit(null);
+                          } catch (error) {
+                            console.error("Error updating user:", error);
+                            alert("Failed to update user. Please try again.");
+                          }
                         }}
                         className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
                       >
                         Save Changes
                       </button>
+
                     </div>
                   </div>
                 )}
@@ -2251,6 +2260,9 @@ const UserManagement = () => {
                       <p className="text-xs text-gray-500 mt-1">
                         Only lowercase letters and numbers allowed
                       </p>
+                      <p className="text-xs text-gray-600 mt-1 font-semibold">
+                        Default password :"1234" created
+                      </p>
                     </div>
 
                     {/* Action Buttons */}
@@ -2419,11 +2431,13 @@ const UserManagement = () => {
                                               // Get the username from the users data structure
                                               const departmentData = users[department.name];
                                               const departmentUsername = departmentData?.username || 'N/A';
+                                              const departmentMobile = departmentData?.mobile || 'N/A';
 
                                               // Create enhanced profile data with username
                                               const enhancedProfileData = {
                                                 ...department,
-                                                username: departmentUsername
+                                                username: departmentUsername,
+                                                mobile: departmentMobile
                                               };
 
                                               setExpandedProfile(department.name);
@@ -2467,10 +2481,12 @@ const UserManagement = () => {
                                     <tr>
                                       <td colSpan="4" className="px-2 sm:px-4 py-2 bg-gray-50">
                                         <div className="flex flex-col space-y-2 w-full">
-                                          {/* {isExpanded.divisions?.map((division, index) => { */}
-                                          {isExpanded.divisions
-                                            ?.filter((division) => division.name?.toLowerCase() !== 'id')
-                                            .map((division, index) => {
+                                  {isExpanded.divisions
+  ?.filter((division) => {
+    const name = division.name?.toLowerCase();
+    return name !== 'id' && name !== 'username' && name !== 'mobile';
+  })
+  .map((division, index) => {
                                               const typeKey = `${isExpanded.name}-${division.name}`;
                                               const isTypeExpanded = expandedTypes.includes(typeKey);
 
@@ -2660,7 +2676,7 @@ const UserManagement = () => {
                             </div>
 
                           )}
-
+                          {/* 
                           {expandedProfile && !expandedReset && (
                             <div className="space-y-3">
                               <h3 className="text-sm font-semibold text-gray-800">
@@ -2686,6 +2702,22 @@ const UserManagement = () => {
                                     className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
                                   />
                                 </div>
+                                <div className="flex items-center">
+                                  <label className="w-20 text-gray-600 font-medium">Mobile:</label>
+                                  <input
+                                    type="text"
+                                    value={expandedProfileData?.mobile || ''}
+                                    onChange={(e) =>
+                                      setExpandedProfileData({
+                                        ...expandedProfileData,
+                                        mobile: e.target.value,
+                                      })
+                                    }
+                                    className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+                                  />
+                                </div>
+
+
                               </div>
 
                               <div className="pt-1 flex justify-end space-x-2">
@@ -2706,6 +2738,142 @@ const UserManagement = () => {
                                 >
                                   Close
                                 </button>
+                              </div>
+                            </div>
+
+                          )} */}
+
+                          {expandedProfile && !expandedReset && (
+                            <div className="space-y-3">
+                              <h3 className="text-sm font-semibold text-gray-800">
+                                Profile: <span className="text-blue-600">{expandedProfileData?.name || 'N/A'}</span>
+                              </h3>
+
+                              <div className="space-y-2 text-xs text-gray-800">
+                                <div className="flex items-center">
+                                  <label className="w-20 text-gray-600 font-medium">Username:</label>
+                                  <span className="flex-1 px-2 py-1 text-xs">{expandedProfileData?.username || 'N/A'}</span>
+                                </div>
+
+                                <div className="flex items-center">
+                                  <label className="w-20 text-gray-600 font-medium">Name:</label>
+                                  {isEditing ? (
+                                    <input
+                                      type="text"
+                                      value={expandedProfileData?.name || ''}
+                                      onChange={(e) => setExpandedProfileData({ ...expandedProfileData, name: e.target.value })}
+                                      className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+                                    />
+                                  ) : (
+                                    <span className="flex-1 px-2 py-1 text-xs">{expandedProfileData?.name || 'N/A'}</span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center">
+                                  <label className="w-20 text-gray-600 font-medium">Mobile:</label>
+                                  {isEditing ? (
+                                    <input
+                                      type="text"
+                                      value={expandedProfileData?.mobile || ''}
+                                      onChange={(e) =>
+                                        setExpandedProfileData({
+                                          ...expandedProfileData,
+                                          mobile: e.target.value,
+                                        })
+                                      }
+                                      className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+                                    />
+                                  ) : (
+                                    <span className="flex-1 px-2 py-1 text-xs">{expandedProfileData?.mobile || 'N/A'}</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="pt-1 flex justify-end space-x-2">
+                                {isEditing ? (
+                                  <>
+<button
+  onClick={async () => {
+    try {
+      // Get the token from localStorage or wherever you store it
+      const token = localStorage.getItem('authToken') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('accessToken');
+
+      if (!token) {
+        alert('Authentication token not found. Please login again.');
+        return;
+      }
+
+      // Get the department ID from the users data structure
+      const departmentData = users[expandedProfile];
+      const departmentId = departmentData?.id;
+
+      if (!departmentId) {
+        alert('Department ID not found. Please try again.');
+        return;
+      }
+
+      const response = await fetch(`https://rcs-dms.onlinetn.com/api/v1/user/${departmentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: expandedProfileData?.name,
+          mobile: expandedProfileData?.mobile,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('API Error:', errorData);
+        throw new Error(`Failed to update profile: ${response.status}`);
+      }
+
+      // Success handling
+      console.log('Profile updated successfully');
+      setIsEditing(false);
+
+      // Show success alert and feedback
+      alert('Profile updated successfully!');
+      setSubmitSuccess(true);
+      setTimeout(() => setSubmitSuccess(false), 3000);
+
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('Failed to update profile. Please try again.');
+    }
+  }}
+  className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+>
+  Save
+</button>
+
+                                    <button
+                                      onClick={() => setIsEditing(false)}
+                                      className="px-3 py-1 text-xs bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => setIsEditing(true)}
+                                      className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={() => setExpandedProfile(null)}
+                                      className="px-3 py-1 text-xs bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
+                                    >
+                                      Close
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           )}

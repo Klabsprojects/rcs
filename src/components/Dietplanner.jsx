@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../services/api';
 
 
-const InlineSegmentDietPlannerForm = ({ segment, onSavePlan, onCancel, loading, groceryItems, getAllowedUnits }) => {
+const InlineSegmentDietPlannerForm = ({ segment, onSavePlan, onCancel, loading, groceryItems, getAllowedUnits, editingPlan = null, isEditing = false }) => {
   const [formType, setFormType] = useState('per-day');
   const [items, setItems] = useState([{ name: '', quantity: '', unit: 'gram' }]);
 const [fixedGroups, setFixedGroups] = useState(new Set());
@@ -34,7 +34,71 @@ const [fixedGroups, setFixedGroups] = useState(new Set());
   };
 
 
-
+useEffect(() => {
+  if (isEditing && editingPlan) {
+    if (editingPlan.type === 'Week') {
+      setFormType('per-week');
+      // Parse weekly data and populate weeklyPlanGroups
+      const groups = [];
+      let groupId = 1;
+      
+      allDays.forEach(day => {
+        if (editingPlan[day]) {
+          const items = Object.entries(editingPlan[day]).map(([itemId, quantity]) => {
+            // Find grocery item by ID
+            const groceryItem = groceryItems.find(g => g.id.toString() === itemId);
+            return {
+              name: groceryItem ? groceryItem.name : '',
+              quantity: quantity.toString(),
+              unit: groceryItem ? groceryItem.resident : 'gram'
+            };
+          });
+          
+          groups.push({
+            id: groupId++,
+            name: `${day} Plans`,
+            days: [day],
+            items: items.length > 0 ? items : [{ name: '', quantity: '', unit: 'gram' }]
+          });
+        }
+      });
+      
+      if (groups.length > 0) {
+        setWeeklyPlanGroups(groups);
+        setFixedGroups(new Set(groups.map(g => g.id)));
+        setNextGroupId(groupId);
+      }
+    } else if (editingPlan.type === 'Day') {
+      setFormType('per-day');
+      const parsedItems = Object.entries(editingPlan.Day || {}).map(([itemId, quantity]) => {
+        // Find grocery item by ID
+        const groceryItem = groceryItems.find(g => g.id.toString() === itemId);
+        return {
+          name: groceryItem ? groceryItem.name : '',
+          quantity: quantity.toString(),
+          unit: groceryItem ? groceryItem.resident : 'gram'
+        };
+      });
+      if (parsedItems.length > 0) {
+        setItems(parsedItems);
+      }
+    } else if (editingPlan.type === 'Month') {
+      setFormType('per-month');
+      const parsedItems = Object.entries(editingPlan.Month || {}).map(([itemId, quantity]) => {
+        // Find grocery item by ID
+        const groceryItem = groceryItems.find(g => g.id.toString() === itemId);
+        return {
+          name: groceryItem ? groceryItem.name : '',
+          quantity: quantity.toString(),
+          unit: groceryItem ? groceryItem.resident : 'gram'
+        };
+      });
+      if (parsedItems.length > 0) {
+        setItems(parsedItems);
+      }
+    }
+  }
+}, [isEditing, editingPlan, groceryItems]);
   const handleGroupItemChange = (groupId, itemIndex, e) => {
     const { name, value } = e.target;
     const newGroups = weeklyPlanGroups.map(group => {
@@ -480,11 +544,13 @@ const DietPlanner = () => {
   const [userInfoList, setUserInfoList] = useState([]);
   const [selectedUserIndex, setSelectedUserIndex] = useState(null);
   const [expandedUserIndex, setExpandedUserIndex] = useState(null);
-
+const [editingPlan, setEditingPlan] = useState(null);
+const [editingSegmentId, setEditingSegmentId] = useState(null);
+const [editingPlanIndex, setEditingPlanIndex] = useState(null);
 const [eaterTypes, setEaterTypes] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [apiError, setApiError] = useState('');
+
   const [segments, setSegments] = useState([]);
   const [formInputs, setFormInputs] = useState({ type: '', subType: '', dietType: '' });
 const selectedEaterType = eaterTypes.find(type => type.name === formInputs.type);
@@ -524,7 +590,18 @@ useEffect(() => {
     setFormInputs({ ...formInputs, [name]: value });
   };
 
-  // GET API call to fetch all segments
+const handleEditPlan = (segmentId, planIndex) => {
+  const segment = segments.find(s => s.id === segmentId);
+  if (segment && segmentHasPlans(segment)) {
+    const plans = getSegmentPlans(segment);
+    if (plans[planIndex]) {
+      setEditingPlan(plans[planIndex]);
+      setEditingSegmentId(segmentId);
+      setEditingPlanIndex(planIndex);
+      setExpandedSegmentForPlan(segmentId);
+    }
+  }
+};
   const fetchGroceryItems = async () => {
   try {
     setGroceryItemsLoading(true);
@@ -548,15 +625,12 @@ useEffect(() => {
 
     const result = await response.json();
     
-    if (result.error === false) {
-      setGroceryItems(result.data || []);
-    } else {
-      throw new Error(result.message || 'Failed to fetch grocery items');
-    }
-  } catch (error) {
-    console.error('Error fetching grocery items:', error);
-    setApiError(error.message);
-  } finally {
+if (result.error === false) {
+  setGroceryItems(result.data || []);
+}
+} catch (error) {
+  console.error('Error fetching grocery items:', error);
+} finally {
     setGroceryItemsLoading(false);
   }
 };
@@ -622,12 +696,19 @@ const handleViewDetailedPlan = async (segmentId, planIndex) => {
 
   try {
     const segment = segments.find(s => s.id === segmentId);
-    if (!segment || !segment.plan || !segment.plan[planIndex]) {
+    if (!segment || !segment.plan) {
       alert('Plan not found');
       return;
     }
-const plan = segment.plan[planIndex];
-const detailedPlan = await bindItemsToPlan(plan);
+    
+    const plans = Array.isArray(segment.plan) ? segment.plan : [segment.plan];
+    if (!plans[planIndex]) {
+      alert('Plan not found');
+      return;
+    }
+    
+    const plan = plans[planIndex];
+    const detailedPlan = await bindItemsToPlan(plan);
     
     setDetailedPlanView(prev => ({
       ...prev,
@@ -647,7 +728,7 @@ const getAllowedUnits = (itemName) => {
   const fetchSegments = async () => {
     try {
       setSegmentsLoading(true);
-      setApiError('');
+
       
       const token = localStorage.getItem('authToken');
       
@@ -672,16 +753,13 @@ const getAllowedUnits = (itemName) => {
 
       const result = await response.json();
       
-      if (result.error === false) {
-        setSegments(result.data || []);
-        console.log('Segments fetched successfully:', result.data);
-      } else {
-        throw new Error(result.message || 'Failed to fetch segments');
-      }
-    } catch (error) {
-      console.error('Error fetching segments:', error);
-      setApiError(error.message);
-    } finally {
+if (result.error === false) {
+  setSegments(result.data || []);
+  console.log('Segments fetched successfully:', result.data);
+}
+} catch (error) {
+  console.error('Error fetching segments:', error);
+} finally {
       setSegmentsLoading(false);
     }
   };
@@ -711,7 +789,7 @@ const fetchEaterTypes = async () => {
 const fetchSegmentData = async (category, diet) => {
   try {
     setLoading(true);
-    setApiError('');
+
     
     const token = localStorage.getItem('authToken');
     
@@ -740,11 +818,10 @@ const fetchSegmentData = async (category, diet) => {
 
     const data = await response.json();
     return data;
-  } catch (error) {
-    console.error('Error fetching segment data:', error);
-    setApiError(error.message);
-    return null;
-  } finally {
+} catch (error) {
+  console.error('Error fetching segment data:', error);
+  return null;
+} finally {
     setLoading(false);
   }
 };
@@ -828,78 +905,121 @@ if (plan.formType === 'per-week') {
     console.error('Failed to save plan:', error);
     alert(`Failed to save plan: ${error.message}`);
   }
+};const segmentHasPlans = (segment) => {
+  if (!segment.plan) return false;
+  
+  // Handle the nested structure: segment.plan.plan
+  if (segment.plan.plan && Array.isArray(segment.plan.plan)) {
+    return segment.plan.plan.length > 0;
+  }
+  
+  // Handle direct array structure: segment.plan (if it's an array)
+  if (Array.isArray(segment.plan)) {
+    return segment.plan.length > 0;
+  }
+  
+  // Handle single plan object: segment.plan.type
+  if (segment.plan.type) {
+    return true;
+  }
+  
+  return false;
 };
-  // POST API call to save diet plan to specific segment
-  const savePlanToSegment = async (segmentId, planData) => {
-    try {
-      setLoading(true);
-      setApiError('');
-      
-      const token = localStorage.getItem('authToken');
-      
-      if (!token) {
-        throw new Error('Authentication token not found. Please login again.');
-      }
 
-      // Debug logging
-      console.log('=== API Call Debug Info ===');
-      console.log('Segment ID:', segmentId);
-      console.log('Plan Data:', JSON.stringify(planData, null, 2));
-      console.log('API URL:', `${API_BASE_URL}/segment/${segmentId}/plan`);
-      console.log('Token (first 20 chars):', token.substring(0, 20) + '...');
+// Helper function to get plans array from segment
+const getSegmentPlans = (segment) => {
+  if (!segment.plan) return [];
+  
+  // Handle the nested structure: segment.plan.plan
+  if (segment.plan.plan && Array.isArray(segment.plan.plan)) {
+    return segment.plan.plan;
+  }
+  
+  // Handle direct array structure: segment.plan (if it's an array)
+  if (Array.isArray(segment.plan)) {
+    return segment.plan;
+  }
+  
+  // Handle single plan object: segment.plan
+  if (segment.plan.type) {
+    return [segment.plan];
+  }
+  
+  return [];
+};
 
-      const response = await fetch(`${API_BASE_URL}/segment/${segmentId}/plan`, {
-        method: 'POST',
-        headers: {
-          'Authorization': token,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(planData)
-      });
+const savePlanToSegment = async (segmentId, planData) => {
+  try {
+    setLoading(true);
 
-      console.log('Response status:', response.status);
-      console.log('Response status text:', response.statusText);
-
-      // Get response body regardless of status
-      let responseBody;
-      const contentType = response.headers.get('content-type');
-      
-      if (contentType && contentType.includes('application/json')) {
-        responseBody = await response.json();
-      } else {
-        responseBody = await response.text();
-      }
-      
-      console.log('Response body:', responseBody);
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Session expired. Please login again.');
-        }
-        
-        // Create detailed error message
-        let errorMessage = `API Error: ${response.status} - ${response.statusText}`;
-        
-        if (typeof responseBody === 'object' && responseBody.message) {
-          errorMessage += ` - ${responseBody.message}`;
-        } else if (typeof responseBody === 'string') {
-          errorMessage += ` - ${responseBody}`;
-        }
-        
-        throw new Error(errorMessage);
-      }
-
-      console.log('✅ Plan saved successfully');
-      return responseBody;
-    } catch (error) {
-      console.error('❌ Error saving plan:', error);
-      setApiError(error.message);
-      throw error;
-    } finally {
-      setLoading(false);
+    
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+      throw new Error('Authentication token not found. Please login again.');
     }
-  };
 
+    // IMPORTANT: Wrap planData array in a "plan" property
+    const requestBody = {
+      plan: [planData]  // This creates {"plan": [planData]}
+    };
+
+    // Debug logging
+    console.log('=== API Call Debug Info ===');
+    console.log('Segment ID:', segmentId);
+    console.log('Original Plan Data:', JSON.stringify(planData, null, 2));
+    console.log('Request Body:', JSON.stringify(requestBody, null, 2));
+    console.log('API URL:', `${API_BASE_URL}/segment/${segmentId}/plan`);
+
+    const response = await fetch(`${API_BASE_URL}/segment/${segmentId}/plan`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody) // Send {"plan": [planData]}
+    });
+
+    console.log('Response status:', response.status);
+    console.log('Response status text:', response.statusText);
+
+    // Get response body regardless of status
+    let responseBody;
+    const contentType = response.headers.get('content-type');
+    
+    if (contentType && contentType.includes('application/json')) {
+      responseBody = await response.json();
+    } else {
+      responseBody = await response.text();
+    }
+    
+    console.log('Response body:', responseBody);
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Session expired. Please login again.');
+      }
+      
+      let errorMessage = `API Error: ${response.status} - ${response.statusText}`;
+      
+      if (typeof responseBody === 'object' && responseBody.message) {
+        errorMessage += ` - ${responseBody.message}`;
+      } else if (typeof responseBody === 'string') {
+        errorMessage += ` - ${responseBody}`;
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    console.log('✅ Plan saved successfully');
+    return responseBody;
+} catch (error) {
+  console.error('❌ Error saving plan:', error);
+  throw error;
+} finally {
+    setLoading(false);
+  }
+};
 const handleUserCreation = async () => {
   const { type, subType, dietType } = formInputs;
   
@@ -919,10 +1039,9 @@ const handleUserCreation = async () => {
   const categoryForAPI = subType ? `${type} - ${subType}` : type;
   const segmentData = await fetchSegmentData(categoryForAPI, dietMapping[dietType]);
 
-  if (apiError || !segmentData) {
-    alert(`Failed to fetch segment data: ${apiError || 'Unknown error'}`);
-    return;
-  }
+if (!segmentData) {
+  return;
+}
 
   // Debug: Log the entire segmentData response
   console.log('Full segment data response:', JSON.stringify(segmentData, null, 2));
@@ -955,7 +1074,7 @@ const handleUserCreation = async () => {
   await fetchSegments();
 };
 const handleSaveSegmentPlan = async (plan) => {
-  const segment = segments.find(s => s.id === expandedSegmentForPlan);
+  const segment = segments.find(s => s.id === (editingSegmentId || expandedSegmentForPlan));
   if (!segment) {
     alert('No segment selected');
     return;
@@ -964,66 +1083,62 @@ const handleSaveSegmentPlan = async (plan) => {
   let segmentPlanData;
 
   if (plan.formType === 'per-week') {
-    // Create the base object with type
     segmentPlanData = {
       type: 'Week'
     };
 
-    // Create individual day entries for each group
     plan.weeklyPlanGroups.forEach((group) => {
-      const groupItems = group.items.map(item => {
-        const groceryItem = groceryItems.find(g => g.name === item.name);
-        return {
-          id: groceryItem ? groceryItem.id : null,
-          qty: parseInt(item.quantity) || 0
-        };
+      group.days.forEach(day => {
+        const dayItems = {};
+        group.items.forEach(item => {
+          const groceryItem = groceryItems.find(g => g.name === item.name);
+          if (groceryItem) {
+            dayItems[groceryItem.id] = parseInt(item.quantity) || 0;
+          }
+        });
+        segmentPlanData[day] = dayItems;
       });
-
-      // Add each day in the group as a separate key with the same items
- // Add each day in the group as a separate key with the same items
-group.days.forEach(day => {
-  const dayItems = {};
-  group.items.forEach(item => {
-    const groceryItem = groceryItems.find(g => g.name === item.name);
-    if (groceryItem) {
-      dayItems[groceryItem.id] = parseInt(item.quantity) || 0;
-    }
-  });
-  segmentPlanData[day] = dayItems;
-});
     });
   } else {
-    // Handle daily/monthly plan
-const planType = plan.formType === 'per-day' ? 'Day' : 'Month';
-const itemsObj = {};
+    const planType = plan.formType === 'per-day' ? 'Day' : 'Month';
+    const itemsObj = {};
 
-plan.items.forEach(item => {
-  const groceryItem = groceryItems.find(g => g.name === item.name);
-  if (groceryItem) {
-    itemsObj[groceryItem.id] = parseInt(item.quantity) || 0;
-  }
-});
+    plan.items.forEach(item => {
+      const groceryItem = groceryItems.find(g => g.name === item.name);
+      if (groceryItem) {
+        itemsObj[groceryItem.id] = parseInt(item.quantity) || 0;
+      }
+    });
 
-segmentPlanData = {
-  [planType]: itemsObj,
-  type: planType
-};
+    segmentPlanData = {
+      [planType]: itemsObj,
+      type: planType
+    };
   }
 
   console.log('Final plan data to send for segment:', segmentPlanData);
 
   try {
+    // Send the plan data directly (the API should wrap it in an array)
     const result = await savePlanToSegment(segment.id, segmentPlanData);
     
-    // Refresh segments to show updated plans
-    fetchSegments();
+    if (editingPlan) {
+      alert(`Plan updated successfully for ${segment.category} - ${segment.role}!`);
+    } else {
+      alert(`Plan saved successfully for ${segment.category} - ${segment.role}!`);
+    }
     
-    alert(`Plan saved successfully for ${segment.category} - ${segment.role}!`);
+    // Reset edit state
+    setEditingPlan(null);
+    setEditingSegmentId(null);
+    setEditingPlanIndex(null);
+    
+    fetchSegments();
   } catch (error) {
     console.error('Failed to save segment plan:', error);
-    alert(`Failed to save plan: ${error.message}`);
   }
 };
+
   const handleViewPlan = (userIndex) => {
     setExpandedUserIndex(expandedUserIndex === userIndex ? null : userIndex);
   };
@@ -1035,20 +1150,23 @@ const toggleSegmentExpansion = (segmentId) => {
   // If expanding, call API for all plans in this segment
   if (isExpanding) {
     const segment = segments.find(s => s.id === segmentId);
-    if (segment && segment.plan && segment.plan.length > 0) {
-      segment.plan.forEach((plan, planIndex) => {
-        handleViewDetailedPlan(segmentId, planIndex);
-      });
+    if (segment && segmentHasPlans(segment)) {
+      const plans = getSegmentPlans(segment);
+      if (plans.length > 0) {
+        plans.forEach((plan, planIndex) => {
+          handleViewDetailedPlan(segmentId, planIndex);
+        });
+      }
     }
   }
 };
 
-  // Retry function for failed API calls
-  const handleRetry = () => {
-    setApiError('');
-    fetchSegments();
-  };
-// Component to display detailed plan with item names
+
+// ADD THESE MISSING FUNCTIONS:
+const handleRetry = () => {
+fetchSegments();
+};
+
 // Component to display detailed plan with item names
 const DetailedPlanView = ({ segmentId, planIndex, plan }) => {
   const detailKey = `${segmentId}-${planIndex}`;
@@ -1102,8 +1220,6 @@ const DetailedPlanView = ({ segmentId, planIndex, plan }) => {
 return (
   <div className="max-w-7xl mx-auto px-4 py-6">
     
-      
-
 <div className="bg-sky-50 p-4 rounded shadow mb-6 flex gap-4 items-end">
   <div className="flex-1">
     <label className="block text-sm text-gray-700">User Type</label>
@@ -1123,7 +1239,6 @@ return (
     </select>
   </div>
   
-  {/* Sub Type dropdown - shows only if selected type has sub array */}
   {selectedEaterType && selectedEaterType.sub && selectedEaterType.sub.length > 0 && (
     <div className="flex-1">
       <label className="block text-sm text-gray-700">Sub Type</label>
@@ -1172,170 +1287,162 @@ return (
   </button>
 </div>
 
-      {/* Error Display */}
-      {apiError && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 flex items-center justify-between">
-          <div>
-            <strong>Error:</strong> {apiError}
-          </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={handleRetry}
-              className="text-sm bg-red-200 hover:bg-red-300 px-3 py-1 rounded"
-            >
-              Retry
-            </button>
-            <button
-              onClick={() => setApiError('')}
-              className="text-red-700 hover:text-red-900"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Segments Display with Plans */}
-      {segments.length > 0 && (
-        <div className="bg-white rounded shadow mb-6 p-4">
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">Available Segments & Their Plans</h2>
-          <div className="space-y-3">
-            {segments.map((segment) => (
-              <div key={segment.id} className="border border-gray-200 rounded-lg">
-                <div 
-                  className="bg-gray-50 p-3 cursor-pointer hover:bg-gray-100 flex justify-between items-center"
-                  onClick={() => toggleSegmentExpansion(segment.id)}
-                >
-                  <div>
-                <p className="text-sm font-medium text-gray-800">
-  <span className="hidden">ID: {segment.id} | </span>{segment.category} - {segment.role}
-</p>
-                    <p className="text-xs text-gray-600">
-                      Diet: {segment.diet} | Status: {segment.status}
-                    </p>
-                  </div>
- <div className="flex items-center space-x-2">
-  {segment.plan && segment.plan.length > 0 && (
-    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-      Plan exists
-    </span>
-  )}
-  {(!segment.plan || segment.plan.length === 0) && (
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        setExpandedSegmentForPlan(expandedSegmentForPlan === segment.id ? null : segment.id);
-      }}
-      className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
-    >
-      {expandedSegmentForPlan === segment.id ? 'Cancel' : 'Add Plan'}
-    </button>
-  )}
-  <span className="text-gray-400">
-    {expandedSegment === segment.id ? '▼' : '▶'}
-  </span>
-</div>
-                </div>
-{/* Expanded segment plans */}
-{expandedSegment === segment.id && segment.plan && segment.plan.length > 0 && (
-  <div className="p-4 border-t border-gray-200 bg-white">
-    <h4 className="font-medium text-gray-800 mb-3">Existing Plans:</h4>
-    {segment.plan.map((plan, planIndex) => {
-      const detailKey = `${segment.id}-${planIndex}`;
-      const isDetailedViewOpen = detailedPlanView[detailKey];
-      
-      return (
-        <div key={planIndex} className="mb-4 last:mb-0">
-          <div className="bg-blue-50 p-3 rounded">
-       <div className="flex justify-between items-start mb-2">
-
-  {planDetailsLoading && (
-    <span className="text-gray-400">⟳</span>
-  )}
-</div>
-
-            {/* Show detailed plan */}
-            <div className="mt-3">
-              {isDetailedViewOpen ? (
-                <DetailedPlanView 
-                  segmentId={segment.id} 
-                  planIndex={planIndex} 
-                  plan={plan}
-                />
-              ) : (
-                <div className="text-sm text-gray-500">Loading plan details...</div>
+{segments.length > 0 && (
+  <div className="bg-white rounded shadow mb-6 p-4">
+    <h2 className="text-lg font-semibold text-gray-800 mb-3">Available Segments & Their Plans</h2>
+    <div className="space-y-3">
+      {segments.map((segment) => (
+        <div key={segment.id} className="border border-gray-200 rounded-lg">
+          <div 
+            className="bg-gray-50 p-3 cursor-pointer hover:bg-gray-100 flex justify-between items-center"
+            onClick={() => toggleSegmentExpansion(segment.id)}
+          >
+            <div>
+              <p className="text-sm font-medium text-gray-800">
+                <span className="hidden">ID: {segment.id} | </span>{segment.category} - {segment.role}
+              </p>
+              <p className="text-xs text-gray-600">
+                Diet: {segment.diet} | Status: {segment.status}
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              {segmentHasPlans(segment) && (
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                  Plan exists
+                </span>
               )}
+              {!segmentHasPlans(segment) && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedSegmentForPlan(expandedSegmentForPlan === segment.id ? null : segment.id);
+                  }}
+                  className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                >
+                  {expandedSegmentForPlan === segment.id ? 'Cancel' : 'Add Plan'}
+                </button>
+              )}
+              <span className="text-gray-400">
+                {expandedSegment === segment.id ? '▼' : '▶'}
+              </span>
             </div>
           </div>
-        </div>
-      );
-    })}
-  </div>
-)}
+
+          {expandedSegment === segment.id && segmentHasPlans(segment) && (
+            <div className="p-4 border-t border-gray-200 bg-white">
+              <h4 className="font-medium text-gray-800 mb-3">Existing Plans:</h4>
+              {getSegmentPlans(segment).map((plan, planIndex) => {
+                const detailKey = `${segment.id}-${planIndex}`;
+                const isDetailedViewOpen = detailedPlanView[detailKey];
                 
-                {/* No plans message */}
-                {expandedSegment === segment.id && (!segment.plan || segment.plan.length === 0) && (
-                  <div className="p-4 border-t border-gray-200 bg-gray-50">
-                    <p className="text-sm text-gray-500 italic">No plans created for this segment yet.</p>
+                return (
+                  <div key={planIndex} className="mb-4 last:mb-0">
+                    <div className="bg-blue-50 p-3 rounded">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <span className="text-sm font-medium text-blue-800">
+                            Plan {planIndex + 1}: {plan.type || 'Unknown Type'}
+                          </span>
+                        </div>
+                        {planDetailsLoading && (
+                          <span className="text-gray-400">⟳</span>
+                        )}
+                      </div>
+
+                      <div className="mt-3">
+                        {isDetailedViewOpen ? (
+                          <div>
+                            <DetailedPlanView 
+                              segmentId={segment.id} 
+                              planIndex={planIndex} 
+                              plan={plan}
+                            />
+                            <div className="mt-2 flex justify-end">
+                              <button
+                                onClick={() => handleEditPlan(segment.id, planIndex)}
+                                className="text-xs bg-yellow-500 text-white px-2 py-1 rounded hover:bg-yellow-600"
+                              >
+                                Edit Plan
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500">Loading plan details...</div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                )}
-                {/* Inline Diet Plan Form */}
-{expandedSegmentForPlan === segment.id && (
-  <div className="p-4 border-t-2 border-blue-200 bg-blue-50">
-    <h4 className="font-medium text-blue-800 mb-3">Create New Diet Plan</h4>
-<InlineSegmentDietPlannerForm
-  segment={segment}
-  onSavePlan={(plan) => {
-    handleSaveSegmentPlan(plan);
-    setExpandedSegmentForPlan(null);
-  }}
-  onCancel={() => setExpandedSegmentForPlan(null)}
-  loading={loading}
-  groceryItems={groceryItems}
-  getAllowedUnits={getAllowedUnits}
-/>
+                );
+              })}
+            </div>
+          )}
+          
+          {expandedSegment === segment.id && !segmentHasPlans(segment) && (
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <p className="text-sm text-gray-500 italic">No plans created for this segment yet.</p>
+            </div>
+          )}
+
+          {expandedSegmentForPlan === segment.id && (
+            <div className="p-4 border-t-2 border-blue-200 bg-blue-50">
+              <h4 className="font-medium text-blue-800 mb-3">
+                {editingPlan ? 'Edit Diet Plan' : 'Create New Diet Plan'}
+              </h4>
+              <InlineSegmentDietPlannerForm
+                segment={segment}
+                onSavePlan={(plan) => {
+                  handleSaveSegmentPlan(plan);
+                  setExpandedSegmentForPlan(null);
+                }}
+                onCancel={() => {
+                  setExpandedSegmentForPlan(null);
+                  setEditingPlan(null);
+                  setEditingSegmentId(null);
+                  setEditingPlanIndex(null);
+                }}
+                loading={loading}
+                groceryItems={groceryItems}
+                getAllowedUnits={getAllowedUnits}
+                editingPlan={editingPlan}
+                isEditing={!!editingPlan}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
   </div>
 )}
-              </div>
-              
-            ))}
-          </div>
-        </div>
-      )}
 
 
-
-
-      {/* Modal for creating diet plans */}
-      {showModal && selectedUserIndex !== null && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Create Diet Plan</h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-gray-500 hover:text-gray-800 text-xl"
-              >
-                ×
-              </button>
-            </div>
-   <DietPlannerForm
-  userInfo={userInfoList[selectedUserIndex]}
-  onSavePlan={(plan) => {
-    handleSavePlan(plan);
-    setShowModal(false);
-  }}
-  loading={loading}
-  groceryItems={groceryItems}
-  getAllowedUnits={getAllowedUnits}
-/>
-          </div>
-        </div>
-      )}
+{showModal && selectedUserIndex !== null && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg shadow-lg p-6 max-w-xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold">Create Diet Plan</h2>
+        <button
+          onClick={() => setShowModal(false)}
+          className="text-gray-500 hover:text-gray-800 text-xl"
+        >
+          ×
+        </button>
+      </div>
+      <DietPlannerForm
+        userInfo={userInfoList[selectedUserIndex]}
+        onSavePlan={(plan) => {
+          handleSavePlan(plan);
+          setShowModal(false);
+        }}
+        loading={loading}
+        groceryItems={groceryItems}
+        getAllowedUnits={getAllowedUnits}
+      />
     </div>
-  );
-};
-
+  </div>
+)}
+  </div>
+);
+}; 
 const PlanDetails = ({ plan, segmentData }) => {
   return (
     <div>
