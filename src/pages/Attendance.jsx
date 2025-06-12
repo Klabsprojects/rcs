@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../services/api';
 
@@ -5,7 +6,7 @@ const AttendanceCreation = () => {
   const [segments, setSegments] = useState([
     { segmentId: '', category: '', diet: '', nos: '' }
   ]);
-  
+
   const [segmentOptions, setSegmentOptions] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState(null);
@@ -13,7 +14,7 @@ const AttendanceCreation = () => {
   const [error, setError] = useState('');
   const [attendanceDetails, setAttendanceDetails] = useState([]);
   const [showAttendanceDetails, setShowAttendanceDetails] = useState(false);
-  
+
   // New states for preview
   const [previewData, setPreviewData] = useState([]);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -38,11 +39,19 @@ const AttendanceCreation = () => {
         });
 
         const result = await response.json();
-        
-        if (response.ok && !result.error) {
+
+        if (response.ok && !result.error && result.data?.length) {
           setSegmentOptions(result.data || []);
-        } else {
-     
+
+          // Initialize all 6 segments with 0 count
+          const defaultSegments = result.data.slice(0, 6).map(seg => ({
+            segmentId: seg.id,
+            category: seg.category,
+            diet: seg.diet || '',
+            nos: '0'
+          }));
+
+          setSegments(defaultSegments);
         }
       } catch (err) {
         setError('Network error while fetching segments');
@@ -53,12 +62,13 @@ const AttendanceCreation = () => {
     fetchSegments();
   }, []);
 
+
   // Fetch attendance preview data
   const fetchAttendancePreview = async () => {
     try {
       setPreviewLoading(true);
       setPreviewError('');
-      
+
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_BASE_URL}/attendance`, {
         method: 'GET',
@@ -69,23 +79,26 @@ const AttendanceCreation = () => {
       });
 
       const result = await response.json();
-      
+
       if (response.ok && !result.error) {
         // Transform data to show date and total count for each attendance record
         const transformedData = [];
-        
+
         if (result.data && result.data.length > 0) {
           result.data.forEach(attendance => {
             // Calculate total count for each date
             const totalCount = Object.values(attendance.attendance).reduce((sum, count) => sum + count, 0);
-            
+
             transformedData.push({
+                id: attendance.id, // ✅ add this line
               date: attendance.att_date,
+                attendance: attendance.attendance,  // ✅ store raw attendance object,
               totalCount: totalCount
+
             });
           });
         }
-        
+
         setPreviewData(transformedData);
       } else {
         setPreviewError(result.message || 'No attendance data found');
@@ -108,7 +121,7 @@ const AttendanceCreation = () => {
   const handleSegmentChange = (index, selectedSegmentId) => {
     const selectedSegment = segmentOptions.find(option => option.id.toString() === selectedSegmentId);
     const updated = [...segments];
-    
+
     if (selectedSegment) {
       updated[index] = {
         ...updated[index],
@@ -124,7 +137,7 @@ const AttendanceCreation = () => {
         diet: ''
       };
     }
-    
+
     setSegments(updated);
   };
 
@@ -148,7 +161,7 @@ const AttendanceCreation = () => {
   const handleSave = async () => {
     // Validate that all rows have required data
     const validSegments = segments.filter(seg => seg.segmentId && seg.nos);
-    
+
     if (validSegments.length === 0) {
       setError('Please add at least one valid segment with attendance count');
       return;
@@ -159,7 +172,7 @@ const AttendanceCreation = () => {
 
     try {
       const token = localStorage.getItem('authToken');
-      
+
       // Create attendance object with segment IDs as keys
       const attendanceObj = {};
       validSegments.forEach(seg => {
@@ -185,7 +198,14 @@ const AttendanceCreation = () => {
       if (response.ok && !result.error) {
         alert('Attendance saved successfully!');
         // Reset form to initial state
-        setSegments([{ segmentId: '', category: '', diet: '', nos: '' }]);
+        const defaultSegments = segmentOptions.slice(0, 6).map(seg => ({
+  segmentId: seg.id,
+  category: seg.category,
+  diet: seg.diet || '',
+  nos: '0'
+}));
+setSegments(defaultSegments);
+
         setError('');
         // Refresh preview data
         fetchAttendancePreview();
@@ -199,6 +219,35 @@ const AttendanceCreation = () => {
       setLoading(false);
     }
   };
+
+const loadAttendanceById = (record) => {
+  const attendanceMap = record.attendance;
+
+  const filledSegments = segmentOptions
+    .filter(seg => attendanceMap.hasOwnProperty(seg.id.toString()))
+    .map(seg => ({
+      segmentId: seg.id,
+      category: seg.category,
+      diet: seg.diet || '',
+      nos: attendanceMap[seg.id.toString()]?.toString() || '0',
+    }));
+
+  const fullSegments = segmentOptions.slice(0, 6).map(seg => {
+    const match = filledSegments.find(f => f.segmentId === seg.id);
+    return match || {
+      segmentId: seg.id,
+      category: seg.category,
+      diet: seg.diet || '',
+      nos: '0'
+    };
+  });
+
+  setSegments(fullSegments);
+  setEditableDate(record.date.split('T')[0]);
+  setError('');
+};
+
+
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -217,7 +266,7 @@ const AttendanceCreation = () => {
         <div className="flex-1">
           <div className="bg-white shadow rounded-lg p-6 h-full flex flex-col">
             <h1 className="text-xl font-semibold text-center mb-4 text-gray-800">Attendance Creation</h1>
-        
+
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
                 {error}
@@ -242,12 +291,12 @@ const AttendanceCreation = () => {
                 <thead>
                   <tr className="bg-gray-100">
                     <th className="border border-gray-300 px-4 py-2 text-left">S.No</th>
-                    <th className="border border-gray-300 px-4 py-2 text-left"> Resident Segment</th>
+                    <th className="border border-gray-300 px-4 py-2 text-left">Resident Segment</th>
                     <th className="border border-gray-300 px-4 py-2 text-left">Attendance Count</th>
-                    <th className="border border-gray-300 px-4 py-2 text-center">Action</th>
                   </tr>
                 </thead>
-                <tbody>
+
+                {/* <tbody>
                   {segments.map((item, index) => (
                     <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
                       <td className="border border-gray-300 px-4 py-2">{index + 1}.</td>
@@ -295,12 +344,32 @@ const AttendanceCreation = () => {
                       </td>
                     </tr>
                   ))}
+                </tbody> */}
+                <tbody>
+                  {segments.map((item, index) => (
+                    <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
+                      <td className="border border-gray-300 px-4 py-2">{index + 1}.</td>
+                      <td className="border border-gray-300 px-4 py-2 text-sm text-gray-800">
+                        {item.category} - {item.diet || 'N/A'}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        <input
+                          type="number"
+                          className="w-24 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          value={item.nos || ''}
+                          onChange={(e) => handleNosChange(index, e.target.value)}
+                          placeholder="0"
+                        />
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
+
               </table>
             </div>
 
             <div className="mt-4 flex justify-end">
-              <button 
+              <button
                 onClick={handleSave}
                 disabled={loading}
                 className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700 transition disabled:opacity-50"
@@ -317,7 +386,7 @@ const AttendanceCreation = () => {
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
               Attendance Preview
             </h2>
-            
+
             <div className="mb-3">
               <p className="text-sm text-gray-600">
                 Attendance Records
@@ -360,7 +429,9 @@ const AttendanceCreation = () => {
                             <button
                               onClick={() => {
                                 // TODO: Add refresh function for this row
-                                console.log('Refresh clicked for:', item.date);
+                                // console.log('Refresh clicked for:', item.date);
+                                loadAttendanceById(item)
+
                               }}
                               className="text-blue-600 hover:text-blue-800 text-lg"
                               title="Refresh"

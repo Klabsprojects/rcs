@@ -5,7 +5,7 @@ const IndentCreation = () => {
   const [segments, setSegments] = useState([
     { segmentId: '', category: '', diet: '', nos: '' }
   ]);
-  
+
   const [segmentOptions, setSegmentOptions] = useState([]);
   const [inventoryData, setInventoryData] = useState(null);
   const [indentForDays, setIndentForDays] = useState('');
@@ -54,14 +54,14 @@ const IndentCreation = () => {
         });
 
         const result = await response.json();
-        
+
         if (response.ok && !result.error) {
           setSegmentOptions(result.data || []);
         } else {
-       
+
         }
       } catch (err) {
-   
+
         console.error('Error fetching segments:', err);
       }
     };
@@ -83,7 +83,7 @@ const IndentCreation = () => {
         });
 
         const result = await response.json();
-        
+
         if (response.ok && !result.error) {
           setInventoryData(result);
           // Prefill the indent for days with the order value from the first item
@@ -91,10 +91,10 @@ const IndentCreation = () => {
             setIndentForDays(result.data[0].order.toString());
           }
         } else {
-       
+
         }
       } catch (err) {
- 
+
         console.error('Error fetching inventory:', err);
       }
     };
@@ -117,11 +117,11 @@ const IndentCreation = () => {
         });
 
         const result = await response.json();
-        
+
         if (response.ok && !result.error) {
           setIndents(result.data || []);
         } else {
-         
+
         }
       } catch (err) {
         setListError('Network error while fetching indents');
@@ -182,9 +182,12 @@ const IndentCreation = () => {
       });
 
       const result = await response.json();
-      
+
       if (response.ok && !result.error) {
         setOrderDetails(result.data || result);
+        if (result.user) {
+          setUserInfo(result.user); // <-- Add this line to store user info for order
+        }
       } else {
 
       }
@@ -256,7 +259,7 @@ const IndentCreation = () => {
   const handleSegmentChange = (index, selectedSegmentId) => {
     const selectedSegment = segmentOptions.find(option => option.id.toString() === selectedSegmentId);
     const updated = [...segments];
-    
+
     if (selectedSegment) {
       updated[index] = {
         ...updated[index],
@@ -272,7 +275,7 @@ const IndentCreation = () => {
         diet: ''
       };
     }
-    
+
     setSegments(updated);
   };
 
@@ -306,10 +309,10 @@ const IndentCreation = () => {
       const stock = parseFloat(item.stock) || 0;
       const buffer = parseFloat(item.buffer) || 0;
       const required = parseFloat(item.required) || 0;
-      
+
       const exDf = stock - buffer;
       const order = required - exDf;
-      
+
       return {
         ...item,
         exDf: exDf.toFixed(3),
@@ -322,14 +325,14 @@ const IndentCreation = () => {
   const handleSave = async () => {
     // Validate that all rows have required data
     const validSegments = segments.filter(seg => seg.segmentId && seg.nos);
-    
+
     if (validSegments.length === 0) {
-   
+
       return;
     }
 
     if (!indentForDays || indentForDays.trim() === '') {
-      
+
       return;
     }
 
@@ -338,14 +341,18 @@ const IndentCreation = () => {
 
     try {
       const token = localStorage.getItem('authToken');
-      
-      const payload = {
-        days: parseInt(indentForDays),
-        segment: validSegments.map(seg => ({
-          id: parseInt(seg.segmentId),
-          persons: parseInt(seg.nos)
-        }))
-      };
+
+     const payload = {
+  days: parseInt(indentForDays),
+  segment: validSegments
+    .map(seg => {
+      const id = parseInt(seg.segmentId);
+      const persons = parseInt(seg.nos);
+      return id && persons ? { id, persons } : null;
+    })
+    .filter(Boolean)
+};
+
 
       const response = await fetch(`${API_BASE_URL}/indent/users`, {
         method: 'POST',
@@ -364,20 +371,20 @@ const IndentCreation = () => {
         const processedDetails = processIndentDetails(result.data || []);
         setIndentDetails(processedDetails);
         setUserInfo(result.user); // Store user info
-        
+
         // Save the segments and days for order submission
         setSavedSegments(validSegments.map(seg => ({
           id: parseInt(seg.segmentId),
           persons: parseInt(seg.nos)
         })));
         setSavedDays(parseInt(indentForDays));
-        
+
         setShowIndentDetails(true);
         // Reset form to initial state
         setSegments([{ segmentId: '', category: '', diet: '', nos: '' }]);
         setIndentForDays(inventoryData && inventoryData.data && inventoryData.data.length > 0 ? inventoryData.data[0].order.toString() : '');
 
-        
+
         // Refresh the indents list
         const fetchIndents = async () => {
           try {
@@ -391,7 +398,7 @@ const IndentCreation = () => {
             });
 
             const result = await response.json();
-            
+
             if (response.ok && !result.error) {
               setIndents(result.data || []);
             }
@@ -399,13 +406,13 @@ const IndentCreation = () => {
             console.error('Error refreshing indents:', err);
           }
         };
-        
+
         fetchIndents();
       } else {
-       
+
       }
     } catch (err) {
-      
+
       console.error('Error saving indent:', err);
     } finally {
       setLoading(false);
@@ -420,7 +427,7 @@ const IndentCreation = () => {
 
     try {
       const token = localStorage.getItem('authToken');
-      
+
       // Prepare items object from editable orders
       const items = {};
       indentDetails.forEach(item => {
@@ -459,7 +466,7 @@ const IndentCreation = () => {
       if (response.ok && !result.error) {
         setOrderSuccess(true);
         alert('Order submitted successfully!');
-        
+
         // Auto-hide success message after 3 seconds
         setTimeout(() => {
           setOrderSuccess(false);
@@ -486,7 +493,7 @@ const IndentCreation = () => {
     setSelectedOrder(order);
     setShowPopup(true);
   };
-  
+
   const closePopup = () => {
     setShowPopup(false);
     setSelectedOrder(null);
@@ -503,7 +510,7 @@ const IndentCreation = () => {
             {!showIndentDetails && !showExpandedView ? (
               <>
                 <h1 className="text-xl font-semibold text-center mb-4 text-gray-800">Indent Creation</h1>
-        
+
 
                 <div className="mb-4 flex justify-between items-center">
                   <div className="flex items-center gap-4">
@@ -594,7 +601,7 @@ const IndentCreation = () => {
                 </div>
 
                 <div className="mt-4 flex justify-end">
-                  <button 
+                  <button
                     onClick={handleSave}
                     disabled={loading}
                     className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700 transition disabled:opacity-50"
@@ -608,7 +615,7 @@ const IndentCreation = () => {
                 {/* Expanded Order Details View */}
                 <div className="flex justify-between items-center mb-4">
                   <h1 className="text-xl font-semibold text-gray-800">Order Details</h1>
-                  <button 
+                  <button
                     onClick={handleCreateIndent}
                     className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700 transition flex items-center gap-2"
                   >
@@ -619,7 +626,7 @@ const IndentCreation = () => {
                   </button>
                 </div>
 
-        
+
 
                 {detailsLoading ? (
                   <div className="text-center py-8">
@@ -628,6 +635,16 @@ const IndentCreation = () => {
                   </div>
                 ) : orderDetails ? (
                   <div className="space-y-4">
+                    {userInfo?.detail && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                        <h3 className="text-sm font-semibold text-blue-800 mb-2">Indent Source</h3>
+                        <div className="text-sm text-gray-700 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div><span className="font-medium">Branch:</span> {userInfo.detail.branch}</div>
+                          <div><span className="font-medium">Location:</span> {userInfo.detail.location}</div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Items */}
                     {orderDetails.items && orderDetails.items.length > 0 ? (
                       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -638,11 +655,12 @@ const IndentCreation = () => {
                               <tr className="bg-gray-100">
                                 <th className="border border-gray-300 px-4 py-2 text-left">S.No</th>
                                 <th className="border border-gray-300 px-4 py-2 text-left">Item Name</th>
+                                <th className="border border-gray-300 px-4 py-2 text-center">Unit</th>
                                 <th className="border border-gray-300 px-4 py-2 text-center">Required</th>
                                 <th className="border border-gray-300 px-4 py-2 text-center">Stock</th>
                                 <th className="border border-gray-300 px-4 py-2 text-center">Buffer</th>
                                 <th className="border border-gray-300 px-4 py-2 text-center">Order</th>
-                                <th className="border border-gray-300 px-4 py-2 text-center">Unit</th>
+
                               </tr>
                             </thead>
                             <tbody>
@@ -650,11 +668,12 @@ const IndentCreation = () => {
                                 <tr key={item.id} className="hover:bg-gray-50">
                                   <td className="border border-gray-300 px-4 py-2">{itemIndex + 1}.</td>
                                   <td className="border border-gray-300 px-4 py-2">{item.name}</td>
+                                  <td className="border border-gray-300 px-4 py-2 text-center">{item.unit}</td>
                                   <td className="border border-gray-300 px-4 py-2 text-center">{item.required}</td>
                                   <td className="border border-gray-300 px-4 py-2 text-center">{item.stock}</td>
                                   <td className="border border-gray-300 px-4 py-2 text-center">{item.buffer}</td>
                                   <td className="border border-gray-300 px-4 py-2 text-center">{item.order}</td>
-                                  <td className="border border-gray-300 px-4 py-2 text-center">{item.unit}</td>
+
                                 </tr>
                               ))}
                             </tbody>
@@ -678,7 +697,7 @@ const IndentCreation = () => {
                 {/* Indent Details (after save) */}
                 <div className="flex justify-between items-center mb-4">
                   <h1 className="text-xl font-semibold text-gray-800">Indent Details</h1>
-                  <button 
+                  <button
                     onClick={handleCreateIndent}
                     className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700 transition flex items-center gap-2"
                   >
@@ -696,7 +715,7 @@ const IndentCreation = () => {
                   </div>
                 )}
 
-         
+
                 {/* User Information Section - Only showing department, location, and contact */}
                 {userInfo && userInfo.detail && (
                   <div className="bg-blue-50 rounded-lg p-4 mb-6 border border-blue-200">
@@ -765,7 +784,7 @@ const IndentCreation = () => {
 
                 {/* Submit Order Button */}
                 <div className="mt-6 flex justify-end">
-                  <button 
+                  <button
                     onClick={handleSubmitOrder}
                     disabled={orderLoading || orderSuccess}
                     className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
@@ -803,10 +822,10 @@ const IndentCreation = () => {
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
               Previous Indents
             </h2>
-            
-      
 
-     
+
+
+
 
             {listLoading ? (
               <div className="flex items-center justify-center py-8">
@@ -823,11 +842,10 @@ const IndentCreation = () => {
                     <div
                       key={indent.id}
                       onClick={() => handleToggleExpand(indent.id)}
-                      className={`cursor-pointer border-b border-gray-200 last:border-b-0 py-3 px-2 rounded-md transition-colors duration-150 ${
-                        expandedOrder === indent.id && showExpandedView 
-                          ? 'bg-blue-100 border-blue-300' 
-                          : 'hover:bg-white'
-                      }`}
+                      className={`cursor-pointer border-b border-gray-200 last:border-b-0 py-3 px-2 rounded-md transition-colors duration-150 ${expandedOrder === indent.id && showExpandedView
+                        ? 'bg-blue-100 border-blue-300'
+                        : 'hover:bg-white'
+                        }`}
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">

@@ -299,30 +299,39 @@ const Header = () => {
 
           {/* Logo and Title Section */}
           <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
-            {/* Logos */}
-            <div className="flex items-center space-x-2 flex-shrink-0">
-              <img
-                src="images/newlogo.jpg"
-                alt="RCS Logo"
-                className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 object-contain rounded-md"
-              />
+            {/* Government Logo - Left */}
+            <div className="flex-shrink-0">
               <img
                 src="images/logo.png"
-                alt="RCS Logo"
+                alt="Department Logo"
                 className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 object-contain rounded-md"
               />
             </div>
 
-            {/* Title */}
-            <div className="min-w-0 flex-1">
-              <h1 className="text-sm sm:text-lg lg:text-xl xl:text-2xl font-bold text-white leading-tight">
-                கூட்டுறவுச் சங்கங்களின் பதிவாளர்
-              </h1>
-              <p className="text-xs sm:text-base lg:text-lg xl:text-xl text-white font-medium leading-tight">
-                REGISTRAR OF COOPERATIVE SOCIETIES
-              </p>
+            {/* Title + Department Logo - Together */}
+            <div className="flex items-center space-x-3 min-w-0 flex-1">
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-lg lg:text-xl xl:text-2xl font-bold text-white leading-tight">
+                  கூட்டுறவுச் சங்கங்களின் பதிவாளர்
+                </h1>
+                <p className="text-xs sm:text-base lg:text-lg xl:text-xl text-white font-medium leading-tight">
+                  REGISTRAR OF COOPERATIVE SOCIETIES
+                </p>
+              </div>
+
+              {/* Department Logo - Right of Title */}
+              <div className="flex-shrink-0">
+                <img
+                  src="images/newlogo.jpg"
+                  alt="Government Logo"
+                  className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 object-contain rounded-md"
+                />
+              </div>
             </div>
           </div>
+
+
+
 
           {/* Right Section - Navigation Buttons and Profile */}
           <div className="flex items-center space-x-3 flex-shrink-0">
