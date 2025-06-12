@@ -92,7 +92,7 @@ const UserManagement = () => {
 
   const [expandedProfileData, setExpandedProfileData] = useState(null);
 
-
+  const [editMode, setEditMode] = useState(false);
 
   const [selectedUserView, setSelectedUserView] = useState(null);
   const [selectedUserEdit, setSelectedUserEdit] = useState(null);
@@ -1473,15 +1473,7 @@ const types = Object.keys(departmentData)
                                                     View
                                                   </button>
 
-                                                  {/* <button
-                                                    onClick={() => {
-                                                      setSelectedUserView(null);
-                                                      setSelectedUserEdit(user);
-                                                    }}
-                                                    className="px-2 py-1 text-xs font-medium text-green-600 border border-green-200 rounded hover:bg-green-50 transition-colors"
-                                                  >
-                                                    Edit
-                                                  </button> */}
+                                                 
                                                   <button
                                                     onClick={() => {
                                                       setSelectedUserEdit(null);
@@ -1532,186 +1524,174 @@ const types = Object.keys(departmentData)
 
                 {/* RIGHT PANEL STARTS */}
                 {selectedUserView && (
-                  <div className="bg-white border border-gray-200 rounded-xl shadow-md p-6 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-sky-800">User Profile</h3>
-                      <button
-                        className="text-sm text-red-500 hover:text-red-700 font-medium"
-                        onClick={() => setSelectedUserView(null)}
-                      >
-                        ✖
-                      </button>
-                    </div>
+  <div className="bg-white border border-gray-200 rounded-xl shadow-md p-6 space-y-4">
+    <div className="flex items-center justify-between">
+      <h3 className="text-lg font-semibold text-sky-800">User Profile</h3>
+      <button
+        className="text-sm text-red-500 hover:text-red-700 font-medium"
+        onClick={() => {
+          setSelectedUserView(null);
+          setEditMode(false);
+        }}
+      >
+        ✖
+      </button>
+    </div>
 
-                    <div className="divide-y divide-gray-100">
-                      {[
-                        { label: 'Full Name', value: selectedUserView.name },
-                        { label: 'Username', value: selectedUserView.username },
-                        { label: 'Branch', value: selectedUserView.branch },
-                        { label: 'Contact', value: selectedUserView.contact },
-                        { label: 'District', value: selectedUserView.district },
-                      ].map(
-                        (item, index) =>
-                          item.value && (
-                            <div key={index} className="grid grid-cols-3 gap-4 py-2 items-center">
-                              <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
-                                {item.label}
-                              </div>
-                              <div className="col-span-2 text-sm text-gray-800 pl-2">
-                                {item.value}
-                              </div>
-                            </div>
-                          )
-                      )}
+    <div className="divide-y divide-gray-100">
+      {[
+        { label: 'Username', value: selectedUserView.username },
+        { label: 'Branch', value: selectedUserView.branch },
+        { label: 'District', value: selectedUserView.district },
+      ].map((item, index) => (
+        <div key={index} className="grid grid-cols-3 gap-4 py-2 items-center">
+          <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+            {item.label}
+          </div>
+          <div className="col-span-2 text-sm text-gray-800 pl-2">
+            {item.value}
+          </div>
+        </div>
+      ))}
 
-                    </div>
-                    <div className="flex justify-end pt-4 border-t border-gray-200">
-                      <button
-                        onClick={() => {
-                          setSelectedUserView(null);
-                          setSelectedUserEdit(selectedUserView);
-                        }}
-                        className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded hover:bg-blue-50 transition"
-                      >
-                        Edit
-                      </button>
-                    </div>
+      {/* Full Name */}
+      <div className="grid grid-cols-3 gap-4 py-2 items-center">
+        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+          Full Name
+        </div>
+        <div className="col-span-2 pl-2">
+          {editMode ? (
+            <input
+              type="text"
+              value={newUserInfo.name}
+              onChange={(e) =>
+                setNewUserInfo({ ...newUserInfo, name: e.target.value })
+              }
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+              placeholder="Enter full name"
+            />
+          ) : (
+            <div className="text-sm text-gray-800">{selectedUserView.name}</div>
+          )}
+        </div>
+      </div>
 
-                  </div>
-                )}
-                {selectedUserEdit && (
-                  <div className="bg-white border border-gray-200 rounded-xl shadow-md p-6 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-sky-800">Edit User</h3>
-                      <button
-                        className="text-sm text-red-500 hover:text-red-700 font-medium"
-                        onClick={() => setSelectedUserEdit(null)}
-                      >
-                        ✖
-                      </button>
-                    </div>
+      {/* Designation */}
+      <div className="grid grid-cols-3 gap-4 py-2 items-center">
+        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+          Designation
+        </div>
+        <div className="col-span-2 pl-2">
+          {editMode ? (
+            <input
+              type="text"
+              value={newUserInfo.designation || ''}
+              onChange={(e) =>
+                setNewUserInfo({ ...newUserInfo, designation: e.target.value })
+              }
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+              placeholder="Enter designation"
+            />
+          ) : (
+            <div className="text-sm text-gray-800">{selectedUserView.designation}</div>
+          )}
+        </div>
+      </div>
 
-                    <div className="divide-y divide-gray-100">
-                      <div className="grid grid-cols-3 gap-4 py-2 items-center">
-                        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
-                          Name
-                        </div>
-                        <div className="col-span-2 pl-2">
-                          <div className="flex gap-2">
-                            {/* Salutation Dropdown */}
-                            <select
-                              value={newUserInfo.salutation || ''}
-                              onChange={(e) =>
-                                setNewUserInfo({ ...newUserInfo, salutation: e.target.value })
-                              }
-                              className="px-2 py-1 text-sm border border-gray-300 rounded w-24 focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
-                            >
-                              <option value="Mr.">Mr.</option>
-                              <option value="Ms.">Ms.</option>
-                              <option value="Mr.">Mrs.</option>
-                              <option value="Dr.">Dr.</option>
-                            </select>
+      {/* Mobile */}
+      <div className="grid grid-cols-3 gap-4 py-2 items-center">
+        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+          Mobile
+        </div>
+        <div className="col-span-2 pl-2">
+          {editMode ? (
+            <input
+              type="text"
+              value={newUserInfo.contact || ''}
+              onChange={(e) =>
+                setNewUserInfo({ ...newUserInfo, contact: e.target.value })
+              }
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+              placeholder="Enter mobile number"
+            />
+          ) : (
+            <div className="text-sm text-gray-800">{selectedUserView.mobile}</div>
+          )}
+        </div>
+      </div>
+    </div>
 
-                            {/* Name Input */}
-                            <input
-                              type="text"
-                              value={newUserInfo.name}
-                              onChange={(e) =>
-                                setNewUserInfo({ ...newUserInfo, name: e.target.value })
-                              }
-                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
-                              placeholder="Enter name"
-                            />
-                          </div>
-                        </div>
-                      </div>
+    <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+      {editMode ? (
+        <>
+          <button
+            onClick={() => setEditMode(false)}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                const token =
+                  localStorage.getItem('authToken') || localStorage.getItem('token');
 
+                const response = await fetch(
+                  `https://rcs-dms.onlinetn.com/api/v1/user/${selectedUserView.id}`,
+                  {
+                    method: 'PUT',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      name: newUserInfo.name,
+                      mobile: newUserInfo.contact,
+                      designation: newUserInfo.designation,
+                      salutation: newUserInfo.salutation || '',
+                    }),
+                  }
+                );
 
-                      <div className="grid grid-cols-3 gap-4 py-2 items-center">
-                        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
-                          Designation
-                        </div>
-                        <div className="col-span-2 pl-2">
-                          <input
-                            type="text"
-                            value={newUserInfo.designation}
-                            onChange={(e) =>
-                              setNewUserInfo({ ...newUserInfo, designation: e.target.value })
-                            }
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
-                            placeholder="Enter designation"
-                          />
-                        </div>
-                      </div>
+                if (!response.ok) {
+                  const errorData = await response.text();
+                  console.error('API Error:', errorData);
+                  throw new Error(`Failed to update user: ${response.status}`);
+                }
 
-                      <div className="grid grid-cols-3 gap-4 py-2 items-center">
-                        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
-                          Contact
-                        </div>
-                        <div className="col-span-2 pl-2">
-                          <input
-                            type="text"
-                            value={newUserInfo.contact}
-                            onChange={(e) =>
-                              setNewUserInfo({ ...newUserInfo, contact: e.target.value })
-                            }
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
-                            placeholder="Enter contact number"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                setSubmitSuccess(true);
+                setTimeout(() => setSubmitSuccess(false), 2000);
+                setEditMode(false);
+              } catch (error) {
+                console.error('Error updating user:', error);
+                alert('Failed to update user. Please try again.');
+              }
+            }}
+            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            Save Changes
+          </button>
+        </>
+      ) : (
+        <button
+          onClick={() => {
+            setNewUserInfo({
+              name: selectedUserView.name,
+              contact: selectedUserView.mobile || '',
+              designation: selectedUserView.designation || '',
+              // salutation: selectedUserView.salutation || '',
+            });
+            setEditMode(true);
+          }}
+          className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded hover:bg-blue-50 transition"
+        >
+          Edit
+        </button>
+      )}
+    </div>
+  </div>
+)}
 
-                    <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                      <button
-                        onClick={() => setSelectedUserEdit(null)}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={async () => {
-                          try {
-                            // Get the token from localStorage or wherever you store it
-                            const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-
-                            const response = await fetch(`https://rcs-dms.onlinetn.com/api/v1/user/${selectedUserEdit.id}`, {
-                              method: "PUT",
-                              headers: {
-                                "Content-Type": "application/json",
-                                "Authorization": `Bearer ${token}`,
-                              },
-                              body: JSON.stringify({
-                                name: newUserInfo.name,
-                                mobile: newUserInfo.contact,
-                                designation: newUserInfo.designation,
-                                salutation: newUserInfo.salutation, // Added salutation since it's in your form
-                              }),
-                            });
-
-                            if (!response.ok) {
-                              const errorData = await response.text();
-                              console.error("API Error:", errorData);
-                              throw new Error(`Failed to update user: ${response.status}`);
-                            }
-
-                            // Optionally: Show success toast or update UI
-                            setSubmitSuccess(true);
-                            setTimeout(() => setSubmitSuccess(false), 2000);
-                            setSelectedUserEdit(null);
-                          } catch (error) {
-                            console.error("Error updating user:", error);
-                            alert("Failed to update user. Please try again.");
-                          }
-                        }}
-                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
-                      >
-                        Save Changes
-                      </button>
-
-                    </div>
-                  </div>
-                )}
                 {expandedResetUser && (
                   <div className="bg-white border border-gray-200 rounded-xl shadow-md p-6 space-y-4">
                     <div className="flex items-center justify-between">

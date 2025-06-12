@@ -17,6 +17,8 @@ const IndentCreation = () => {
   const [indentDetails, setIndentDetails] = useState([]);
   const [showIndentDetails, setShowIndentDetails] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
+  const [orderDays, setOrderDays] = useState(null);
+
 
   // New states for order submission
   const [orderLoading, setOrderLoading] = useState(false);
@@ -187,6 +189,7 @@ const IndentCreation = () => {
         setOrderDetails(result.data || result);
         if (result.user) {
           setUserInfo(result.user); // <-- Add this line to store user info for order
+          setOrderDays(result.data?.days); // <-- Add this line to store the days
         }
       } else {
 
@@ -342,17 +345,13 @@ const IndentCreation = () => {
     try {
       const token = localStorage.getItem('authToken');
 
-     const payload = {
-  days: parseInt(indentForDays),
-  segment: validSegments
-    .map(seg => {
-      const id = parseInt(seg.segmentId);
-      const persons = parseInt(seg.nos);
-      return id && persons ? { id, persons } : null;
-    })
-    .filter(Boolean)
-};
-
+      const payload = {
+        days: parseInt(indentForDays),
+        segment: validSegments.map(seg => ({
+          id: parseInt(seg.segmentId),
+          persons: parseInt(seg.nos)
+        }))
+      };
 
       const response = await fetch(`${API_BASE_URL}/indent/users`, {
         method: 'POST',
@@ -635,15 +634,18 @@ const IndentCreation = () => {
                   </div>
                 ) : orderDetails ? (
                   <div className="space-y-4">
-                    {userInfo?.detail && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                        <h3 className="text-sm font-semibold text-blue-800 mb-2">Indent Source</h3>
-                        <div className="text-sm text-gray-700 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <div><span className="font-medium">Branch:</span> {userInfo.detail.branch}</div>
-                          <div><span className="font-medium">Location:</span> {userInfo.detail.location}</div>
-                        </div>
-                      </div>
-                    )}
+          {userInfo?.detail && (
+  <div className="w-full bg-blue-50 border border-blue-200 rounded-md p-4">
+    <h3 className="text-sm font-semibold text-blue-800 mb-2">Indent Source</h3>
+    <div className="text-sm text-gray-700 flex justify-between flex-wrap">
+      <div><span className="font-medium">Days:</span> {orderDays}</div>
+      <div><span className="font-medium">Branch:</span> {userInfo.detail.branch}</div>
+      <div><span className="font-medium">Location:</span> {userInfo.detail.location}</div>
+    </div>
+  </div>
+)}
+
+
 
                     {/* Items */}
                     {orderDetails.items && orderDetails.items.length > 0 ? (
