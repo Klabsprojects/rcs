@@ -13,6 +13,8 @@ import LoginPage from './pages/LoginPage';
 import AttendanceCreation from './pages/Attendance';
 import IndentApproval from './pages/IndentApproval';
 import IndentListing from './pages/AdminIndent';
+import DispatchOrder from './pages/DispatchOrder'; // New import
+import Items from './pages/Item';
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('authToken');
@@ -73,6 +75,14 @@ function App() {
                 </ProtectedRoute>
               }
             />
+                  <Route
+              path="/item"
+              element={
+                <ProtectedRoute>
+                  <Items />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/attendance"
               element={
@@ -81,7 +91,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-                  <Route
+            <Route
               path="/indent-request"
               element={
                 <ProtectedRoute>
@@ -103,8 +113,7 @@ function App() {
                 <ProtectedRoute>
                   <UserCreation />
                 </ProtectedRoute>
-
-              }
+               }
             />
             <Route
               path="/indent-approval"
@@ -112,8 +121,16 @@ function App() {
                 <ProtectedRoute>
                   <IndentApproval />
                 </ProtectedRoute>
-
-              }
+               }
+            />
+            {/* New Dispatch Order Route */}
+            <Route
+              path="/dispatch-order/:id"
+              element={
+                <ProtectedRoute>
+                  <DispatchOrder />
+                </ProtectedRoute>
+               }
             />
           </Routes>
         </main>

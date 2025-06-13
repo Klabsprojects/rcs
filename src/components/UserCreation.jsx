@@ -112,6 +112,59 @@ const UserManagement = () => {
   const [expandedProfile, setExpandedProfile] = useState(null);
 
   const [isEditing, setIsEditing] = useState(false);
+  const [editedBranch, setEditedBranch] = useState({});
+
+ const handleSaveEditedBranch = async () => {
+  const token = localStorage.getItem('authToken');
+  const userId = selectedBranchView?.users?.[0]?.id;
+
+  if (!userId || !token) {
+    alert("Missing user ID or authentication token");
+    return;
+  }
+
+  const payload = {
+    // id: userId,
+    district: editedBranch.district || selectedBranchView.district || '',
+    location: editedBranch.location || selectedBranchView.location || '',
+    contact: editedBranch.contact || selectedBranchView.contact || '',
+    address: editedBranch.address || selectedBranchView.address || ''
+  };
+
+  console.log('Updated branch details:', payload);
+
+  try {
+    const response = await fetch(`https://rcs-dms.onlinetn.com/api/v1/user`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (response.ok && !result.error) {
+      alert("Branch updated successfully!");
+      setIsEditing(false);
+      setSelectedBranchView((prev) => ({
+        ...prev,
+        ...payload
+      }));
+    } else {
+      console.error(result);
+      alert("Failed to update branch details");
+    }
+  } catch (error) {
+    console.error("Error saving edited branch:", error);
+    alert("Error occurred while saving");
+  }
+};
+
+
+  const [selectedBranchView, setSelectedBranchView] = useState(null);
+
 
 
 
@@ -281,6 +334,8 @@ const UserManagement = () => {
     }
   };
 
+
+
   // Fetch users on component mount
   useEffect(() => {
     fetchUsers();
@@ -390,7 +445,6 @@ const UserManagement = () => {
       }
     }
   }, [formData.count, formData.name, currentUserRole]);
-  // Add this new function after fetchUsers
   const fetchBranchDetails = async () => {
     try {
       const token = localStorage.getItem('authToken');
@@ -407,7 +461,7 @@ const UserManagement = () => {
       if (result.error === false && result.data) {
         const processedGroups = [];
 
-        // Iterate through each branch type (Child Care, Primary Health Care, etc.)
+        // Iterate through each branch type (Child Care, Testing, etc.)
         Object.keys(result.data).forEach(branchType => {
           const branches = [];
 
@@ -418,18 +472,21 @@ const UserManagement = () => {
             if (users && users.length > 0) {
               const firstUser = users[0];
 
-              // If branchKey is "undefined", use the location as branch name
-              // If branchKey has a value (like "Chennai"), use that as branch name
-              const branchName = branchKey === 'undefined' ? firstUser.location : branchKey;
-
-              branches.push({
+              // Create branch object with proper field mapping
+              const branch = {
                 id: `${branchType}-${branchKey}`,
-                name: branchName, // This will be "Chennai" or "AVR complex" correctly
-                district: firstUser.location, // This will be "Guindy" for Chennai, "AVR complex" for undefined
-                contact: firstUser.contact || '',
+                name: firstUser.branch || branchKey, // Use branch field from user data
+                branch: firstUser.branch || branchKey,
+                district: firstUser.district || '—', // Get district from user data
+                location: firstUser.location || '—', // Get location from user data
+                contact: firstUser.contact || '—',
+                address: firstUser.address || '—', // Get address from user data
                 suffix: firstUser.username?.split('@')[1] || '',
+                branch_type: firstUser.branch_type || branchType,
                 users: users
-              });
+              };
+
+              branches.push(branch);
             }
           });
 
@@ -449,8 +506,7 @@ const UserManagement = () => {
       console.error('Error fetching branch details:', error);
     }
   };
-
-  const [isLoadingUser, setIsLoadingUser] = useState(false);
+  // const [isLoadingUser, setIsLoadingUser] = useState(false);
   // Add this function after fetchUsers
   const fetchBranchesForType = async (typeName) => {
     try {
@@ -509,27 +565,27 @@ const UserManagement = () => {
 
         // Filter out both 'username' and 'id' to get actual branch types
         // Filter out both 'username', 'id', and 'mobile' to get actual branch types
-const typeCount = Object.keys(departmentData).filter(key =>
-  key !== 'username' && key !== 'id' && key !== 'mobile'
-).length;
+        const typeCount = Object.keys(departmentData).filter(key =>
+          key !== 'username' && key !== 'id' && key !== 'mobile'
+        ).length;
 
-// Calculate total branches and users only for actual branch types
-let totalBranches = 0;
-let totalUsers = 0;
+        // Calculate total branches and users only for actual branch types
+        let totalBranches = 0;
+        let totalUsers = 0;
 
-Object.entries(departmentData).forEach(([key, branches]) => {
-  // Skip username, id, and mobile fields
-  if (key !== 'username' && key !== 'id' && key !== 'mobile') {
-    if (typeof branches === 'object' && branches !== null && !Array.isArray(branches)) {
-      totalBranches += Object.keys(branches).length;
-      Object.values(branches).forEach(branchUsers => {
-        if (Array.isArray(branchUsers)) {
-          totalUsers += branchUsers.length;
-        }
-      });
-    }
-  }
-});
+        Object.entries(departmentData).forEach(([key, branches]) => {
+          // Skip username, id, and mobile fields
+          if (key !== 'username' && key !== 'id' && key !== 'mobile') {
+            if (typeof branches === 'object' && branches !== null && !Array.isArray(branches)) {
+              totalBranches += Object.keys(branches).length;
+              Object.values(branches).forEach(branchUsers => {
+                if (Array.isArray(branchUsers)) {
+                  totalUsers += branchUsers.length;
+                }
+              });
+            }
+          }
+        });
 
         return {
           id: departmentName,
@@ -567,9 +623,9 @@ Object.entries(departmentData).forEach(([key, branches]) => {
 
       if (currentUserRole === 'rcs-admin') {
         const departmentData = users[department.name] || {};
-const types = Object.keys(departmentData)
-  .filter(key => key !== 'username' && key !== 'id' && key !== 'mobile') // Exclude username, id, and mobile fields
-  .map(typeName => {
+        const types = Object.keys(departmentData)
+          .filter(key => key !== 'username' && key !== 'id' && key !== 'mobile') // Exclude username, id, and mobile fields
+          .map(typeName => {
             const branches = departmentData[typeName] || {};
             const totalUsers = Object.values(branches).reduce((total, branchUsers) => {
               return total + (Array.isArray(branchUsers) ? branchUsers.length : 0);
@@ -952,6 +1008,7 @@ const types = Object.keys(departmentData)
       return null;
     };
 
+
     const formErrors = validateForm();
     if (Object.keys(formErrors).length > 0) {
       setErrors(formErrors);
@@ -1330,10 +1387,7 @@ const types = Object.keys(departmentData)
             <div className="px-4 py-3 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100">
               <h2 className="text-lg font-semibold text-sky-800">Branch Management</h2>
             </div>
-
             <div className="p-4">
-
-
               {/* Two Column Layout */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
@@ -1391,34 +1445,6 @@ const types = Object.keys(departmentData)
                               >
                                 Add Branch
                               </button>
-                              {/* +Users button */}
-                              {/* <button
-                                onClick={() => {
-                                  setSelectedBranchForUser(division.name);
-                                  setSelectedUser(null);
-                                  setShowAddUserForm(false);
-                                  setIsAddingBranchUsers(true);
-
-                                  // Initialize users for this specific branch if not exists
-                                  // In the +Users button onClick handler, update this part:
-                                  if (!branchUsers[division.name]) {
-                                    setBranchUsers(prev => ({
-                                      ...prev,
-                                      [division.name]: [
-                                        { name: 'Indent_raiser', branch: division.name, mobile: '', password: '' },
-                                        { name: 'Supply_confirmationer', branch: division.name, mobile: '', password: '' },
-                                        { name: 'Payment_approver', branch: division.name, mobile: '', password: '' },
-                                      ]
-                                    }));
-                                  }
-                                }}
-                                className="px-3 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition"
-                              >
-                                + Users ({division.details?.reduce((total, branch) => total + (branch.users?.length || 0), 0) || 0})
-                              </button> */}
-
-
-
                             </div>
                           </div>
 
@@ -1428,22 +1454,39 @@ const types = Object.keys(departmentData)
                                 division.details.map((branchItem, idx) => (
                                   <div key={branchItem.id || `${division.name}-${idx}`} className="w-full">
                                     {/* Row with branch name and Users count */}
-                                    <div className="flex justify-between items-center px-4 py-3 rounded-md border bg-gray-50 hover:shadow-sm transition">
+                                    <div className="flex items-center justify-between px-4 py-3 rounded-md border bg-gray-50 hover:shadow-sm transition">
+                                      {/* Branch Name on the left */}
                                       <div className="text-sm font-semibold text-gray-800">
                                         {branchItem.name}
                                       </div>
-                                      <button
-                                        onClick={() =>
-                                          setExpandedUsers(prev => ({
-                                            ...prev,
-                                            [branchItem.id]: !prev[branchItem.id]
-                                          }))
-                                        }
-                                        className="px-4 py-2 text-sm font-medium bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition shadow-sm border border-purple-200"
-                                      >
-                                        Users ({branchItem.users?.length || 0})
-                                      </button>
+
+                                      {/* Buttons on the right */}
+                                      <div className="flex gap-2 ml-auto">
+                                        <button
+                                          onClick={() =>
+                                            setExpandedUsers(prev => ({
+                                              ...prev,
+                                              [branchItem.id]: !prev[branchItem.id]
+                                            }))
+                                          }
+                                          className="px-4 py-2 text-sm font-medium bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition shadow-sm border border-purple-200"
+                                        >
+                                          Users ({branchItem.users?.length || 0})
+                                        </button>
+
+                                        <button
+                                          onClick={() => {
+                                            setSelectedBranchView(branchItem);
+                                            setSelectedUserEdit(null);
+                                            setSelectedUserView(null);
+                                          }}
+                                          className="px-4 py-2 text-sm font-medium bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition shadow-sm border border-green-200"
+                                        >
+                                          View Branch
+                                        </button>
+                                      </div>
                                     </div>
+
 
                                     {/* Show users when expanded */}
                                     {expandedUsers[branchItem.id] && (
@@ -1473,7 +1516,7 @@ const types = Object.keys(departmentData)
                                                     View
                                                   </button>
 
-                                                 
+
                                                   <button
                                                     onClick={() => {
                                                       setSelectedUserEdit(null);
@@ -1523,174 +1566,263 @@ const types = Object.keys(departmentData)
 
 
                 {/* RIGHT PANEL STARTS */}
+
                 {selectedUserView && (
-  <div className="bg-white border border-gray-200 rounded-xl shadow-md p-6 space-y-4">
-    <div className="flex items-center justify-between">
-      <h3 className="text-lg font-semibold text-sky-800">User Profile</h3>
-      <button
-        className="text-sm text-red-500 hover:text-red-700 font-medium"
-        onClick={() => {
-          setSelectedUserView(null);
-          setEditMode(false);
-        }}
-      >
-        ✖
-      </button>
-    </div>
+                  <div className="bg-white border border-gray-200 rounded-xl shadow-md p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-sky-800">User Profile</h3>
+                      <button
+                        className="text-sm text-red-500 hover:text-red-700 font-medium"
+                        onClick={() => {
+                          setSelectedUserView(null);
+                          setEditMode(false);
+                        }}
+                      >
+                        ✖
+                      </button>
+                    </div>
 
-    <div className="divide-y divide-gray-100">
-      {[
-        { label: 'Username', value: selectedUserView.username },
-        { label: 'Branch', value: selectedUserView.branch },
-        { label: 'District', value: selectedUserView.district },
-      ].map((item, index) => (
-        <div key={index} className="grid grid-cols-3 gap-4 py-2 items-center">
-          <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
-            {item.label}
-          </div>
-          <div className="col-span-2 text-sm text-gray-800 pl-2">
-            {item.value}
-          </div>
-        </div>
-      ))}
+                    <div className="divide-y divide-gray-100">
+                      {[
+                        { label: 'Username', value: selectedUserView.username },
+                        { label: 'Branch', value: selectedUserView.branch },
+                        { label: 'District', value: selectedUserView.district },
+                      ].map((item, index) => (
+                        <div key={index} className="grid grid-cols-3 gap-4 py-2 items-center">
+                          <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+                            {item.label}
+                          </div>
+                          <div className="col-span-2 text-sm text-gray-800 pl-2">
+                            {item.value}
+                          </div>
+                        </div>
+                      ))}
 
-      {/* Full Name */}
-      <div className="grid grid-cols-3 gap-4 py-2 items-center">
-        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
-          Full Name
-        </div>
-        <div className="col-span-2 pl-2">
-          {editMode ? (
-            <input
-              type="text"
-              value={newUserInfo.name}
-              onChange={(e) =>
-                setNewUserInfo({ ...newUserInfo, name: e.target.value })
-              }
-              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
-              placeholder="Enter full name"
-            />
-          ) : (
-            <div className="text-sm text-gray-800">{selectedUserView.name}</div>
-          )}
-        </div>
-      </div>
+                      {/* Full Name */}
+                      <div className="grid grid-cols-3 gap-4 py-2 items-center">
+                        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+                          Full Name
+                        </div>
+                        <div className="col-span-2 pl-2">
+                          {editMode ? (
+                            <input
+                              type="text"
+                              value={newUserInfo.name}
+                              onChange={(e) =>
+                                setNewUserInfo({ ...newUserInfo, name: e.target.value })
+                              }
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+                              placeholder="Enter full name"
+                            />
+                          ) : (
+                            <div className="text-sm text-gray-800">{selectedUserView.name}</div>
+                          )}
+                        </div>
+                      </div>
 
-      {/* Designation */}
-      <div className="grid grid-cols-3 gap-4 py-2 items-center">
-        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
-          Designation
-        </div>
-        <div className="col-span-2 pl-2">
-          {editMode ? (
-            <input
-              type="text"
-              value={newUserInfo.designation || ''}
-              onChange={(e) =>
-                setNewUserInfo({ ...newUserInfo, designation: e.target.value })
-              }
-              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
-              placeholder="Enter designation"
-            />
-          ) : (
-            <div className="text-sm text-gray-800">{selectedUserView.designation}</div>
-          )}
-        </div>
-      </div>
+                      {/* Designation */}
+                      <div className="grid grid-cols-3 gap-4 py-2 items-center">
+                        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+                          Designation
+                        </div>
+                        <div className="col-span-2 pl-2">
+                          {editMode ? (
+                            <input
+                              type="text"
+                              value={newUserInfo.designation || ''}
+                              onChange={(e) =>
+                                setNewUserInfo({ ...newUserInfo, designation: e.target.value })
+                              }
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+                              placeholder="Enter designation"
+                            />
+                          ) : (
+                            <div className="text-sm text-gray-800">{selectedUserView.designation}</div>
+                          )}
+                        </div>
+                      </div>
 
-      {/* Mobile */}
-      <div className="grid grid-cols-3 gap-4 py-2 items-center">
-        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
-          Mobile
-        </div>
-        <div className="col-span-2 pl-2">
-          {editMode ? (
-            <input
-              type="text"
-              value={newUserInfo.contact || ''}
-              onChange={(e) =>
-                setNewUserInfo({ ...newUserInfo, contact: e.target.value })
-              }
-              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
-              placeholder="Enter mobile number"
-            />
-          ) : (
-            <div className="text-sm text-gray-800">{selectedUserView.mobile}</div>
-          )}
-        </div>
-      </div>
-    </div>
+                      {/* Mobile */}
+                      <div className="grid grid-cols-3 gap-4 py-2 items-center">
+                        <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+                          Mobile
+                        </div>
+                        <div className="col-span-2 pl-2">
+                          {editMode ? (
+                            <input
+                              type="text"
+                              value={newUserInfo.contact || ''}
+                              onChange={(e) =>
+                                setNewUserInfo({ ...newUserInfo, contact: e.target.value })
+                              }
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none"
+                              placeholder="Enter mobile number"
+                            />
+                          ) : (
+                            <div className="text-sm text-gray-800">{selectedUserView.mobile}</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
-    <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-      {editMode ? (
-        <>
-          <button
-            onClick={() => setEditMode(false)}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={async () => {
-              try {
-                const token =
-                  localStorage.getItem('authToken') || localStorage.getItem('token');
+                    <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                      {editMode ? (
+                        <>
+                          <button
+                            onClick={() => setEditMode(false)}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                const token =
+                                  localStorage.getItem('authToken') || localStorage.getItem('token');
 
-                const response = await fetch(
-                  `https://rcs-dms.onlinetn.com/api/v1/user/${selectedUserView.id}`,
-                  {
-                    method: 'PUT',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                      name: newUserInfo.name,
-                      mobile: newUserInfo.contact,
-                      designation: newUserInfo.designation,
-                      salutation: newUserInfo.salutation || '',
-                    }),
-                  }
-                );
+                                const response = await fetch(
+                                  `https://rcs-dms.onlinetn.com/api/v1/user/${selectedUserView.id}`,
+                                  {
+                                    method: 'PUT',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      Authorization: `Bearer ${token}`,
+                                    },
+                                    body: JSON.stringify({
+                                      name: newUserInfo.name,
+                                      mobile: newUserInfo.contact,
+                                      designation: newUserInfo.designation,
+                                      salutation: newUserInfo.salutation || '',
+                                    }),
+                                  }
+                                );
 
-                if (!response.ok) {
-                  const errorData = await response.text();
-                  console.error('API Error:', errorData);
-                  throw new Error(`Failed to update user: ${response.status}`);
-                }
+                                if (!response.ok) {
+                                  const errorData = await response.text();
+                                  console.error('API Error:', errorData);
+                                  throw new Error(`Failed to update user: ${response.status}`);
+                                }
 
-                setSubmitSuccess(true);
-                setTimeout(() => setSubmitSuccess(false), 2000);
-                setEditMode(false);
-              } catch (error) {
-                console.error('Error updating user:', error);
-                alert('Failed to update user. Please try again.');
-              }
-            }}
-            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
-          >
-            Save Changes
-          </button>
-        </>
-      ) : (
-        <button
-          onClick={() => {
-            setNewUserInfo({
-              name: selectedUserView.name,
-              contact: selectedUserView.mobile || '',
-              designation: selectedUserView.designation || '',
-              // salutation: selectedUserView.salutation || '',
-            });
-            setEditMode(true);
-          }}
-          className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded hover:bg-blue-50 transition"
-        >
-          Edit
-        </button>
-      )}
-    </div>
-  </div>
-)}
+                                setSubmitSuccess(true);
+                                setTimeout(() => setSubmitSuccess(false), 2000);
+                                setEditMode(false);
+                              } catch (error) {
+                                console.error('Error updating user:', error);
+                                alert('Failed to update user. Please try again.');
+                              }
+                            }}
+                            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+                          >
+                            Save Changes
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setNewUserInfo({
+                              name: selectedUserView.name,
+                              contact: selectedUserView.mobile || '',
+                              designation: selectedUserView.designation || '',
+                              // salutation: selectedUserView.salutation || '',
+                            });
+                            setEditMode(true);
+                          }}
+                          className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded hover:bg-blue-50 transition"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {selectedBranchView && (
+                  <div className="bg-white border border-gray-200 rounded-xl shadow-md p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-sky-800">Branch Details</h3>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          className="text-sm text-red-500 hover:text-red-700 font-medium"
+                          onClick={() => setSelectedBranchView(null)}
+                        >
+                          ✖
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="divide-y divide-gray-100 text-sm">
+                      {[
+                        { label: 'Branch Name', key: 'name', editable: false },
+                        { label: 'District', key: 'district', editable: true },
+                        { label: 'Location', key: 'location', editable: true },
+                        { label: 'Admin Contact Number', key: 'contact', editable: true },
+                        { label: 'Full Address', key: 'address', editable: true }
+                      ].map((item, idx) => {
+                        const value =
+                          selectedBranchView[item.key] ||
+                          (selectedBranchView.users && selectedBranchView.users[0]?.[item.key]) ||
+                          '';
+
+                        return (
+                          <div key={idx} className="grid grid-cols-3 gap-4 py-2 items-center">
+                            <div className="text-sm font-medium text-gray-600 border-r border-gray-300 pr-2">
+                              {item.label}
+                            </div>
+                            <div className="col-span-2 pl-2 text-gray-800">
+                              {isEditing && item.editable ? (
+                                <input
+                                  type="text"
+                                  className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                  value={editedBranch[item.key] ?? value}
+                                  onChange={(e) =>
+                                    setEditedBranch((prev) => ({
+                                      ...prev,
+                                      [item.key]: e.target.value
+                                    }))
+                                  }
+                                />
+                              ) : (
+                                value || '—'
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Bottom-right button area */}
+                    <div className="pt-4 flex justify-end space-x-3">
+                      {isEditing ? (
+                        <>
+                          <button
+                            onClick={() => setIsEditing(false)}
+                            className="text-sm text-gray-600 border border-gray-300 px-4 py-1 rounded hover:text-gray-800"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleSaveEditedBranch}
+                            className="text-sm text-white bg-blue-600 hover:bg-blue-700 px-4 py-1 rounded"
+                          >
+                            Save
+                          </button>
+
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => setIsEditing(true)}
+                          className="text-sm text-blue-600 hover:text-blue-800 font-medium border border-blue-500 px-4 py-1 rounded"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+
+                  </div>
+                )}
+
+
+
 
                 {expandedResetUser && (
                   <div className="bg-white border border-gray-200 rounded-xl shadow-md p-6 space-y-4">
@@ -1783,13 +1915,6 @@ const types = Object.keys(departmentData)
                     </div>
                   </div>
                 )}
-
-
-
-
-
-
-
 
                 {selectedUser && openBranchForm ? (
                   /* Branch Form Panel - Replaces Create Type section */
@@ -2218,7 +2343,7 @@ const types = Object.keys(departmentData)
                     </div>
 
                     {/* Username Suffix Field */}
-                    <div>
+                    {/* <div>
                       <label className="text-sm text-gray-700 block mb-1 font-medium">
                         Username Suffix: <span className="text-red-500">*</span>
                       </label>
@@ -2238,12 +2363,40 @@ const types = Object.keys(departmentData)
                       </div>
                       {errors.suffix && <p className="text-xs text-red-500 mt-1">{errors.suffix}</p>}
                       <p className="text-xs text-gray-500 mt-1">
-                        Only lowercase letters and numbers allowed
+                        Only lowercase letters and numbers allowed with characters upto 9
+                      </p>
+                      <p className="text-xs text-gray-600 mt-1 font-semibold">
+                        Default password :"1234" created
+                      </p>
+                    </div> */}
+                    <div>
+                      <label className="text-sm text-gray-700 block mb-1 font-medium">
+                        Username Suffix: <span className="text-red-500">*</span>
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium text-gray-700">&lt;username&gt;@</span>
+                        <input
+                          type="text"
+                          value={addUserForm.suffix}
+                          onChange={(e) => {
+                            const value = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+                            handleAddUserFormChange('suffix', value);
+                          }}
+                          maxLength={10}
+                          className={`w-48 px-3 py-2 border rounded text-sm focus:border-sky-500 focus:ring-1 focus:ring-sky-100 outline-none ${errors.suffix ? 'border-red-500' : 'border-gray-300'
+                            }`}
+                          placeholder="Auto-generated (editable)"
+                        />
+                      </div>
+                      {errors.suffix && <p className="text-xs text-red-500 mt-1">{errors.suffix}</p>}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Only lowercase letters and numbers allowed with characters upto 9
                       </p>
                       <p className="text-xs text-gray-600 mt-1 font-semibold">
                         Default password :"1234" created
                       </p>
                     </div>
+
 
                     {/* Action Buttons */}
                     <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
@@ -2275,10 +2428,7 @@ const types = Object.keys(departmentData)
                   </div>
                 )}
               </div>
-
             </div>
-
-
           </div>
         ) : (
           <div className={`grid grid-cols-1 transition-all duration-500 ease-in-out ${showForm ? 'xl:grid-cols-2 lg:grid-cols-1' : 'lg:grid-cols-1'} gap-2 xl:gap-4`}>
@@ -2461,12 +2611,12 @@ const types = Object.keys(departmentData)
                                     <tr>
                                       <td colSpan="4" className="px-2 sm:px-4 py-2 bg-gray-50">
                                         <div className="flex flex-col space-y-2 w-full">
-                                  {isExpanded.divisions
-  ?.filter((division) => {
-    const name = division.name?.toLowerCase();
-    return name !== 'id' && name !== 'username' && name !== 'mobile';
-  })
-  .map((division, index) => {
+                                          {isExpanded.divisions
+                                            ?.filter((division) => {
+                                              const name = division.name?.toLowerCase();
+                                              return name !== 'id' && name !== 'username' && name !== 'mobile';
+                                            })
+                                            .map((division, index) => {
                                               const typeKey = `${isExpanded.name}-${division.name}`;
                                               const isTypeExpanded = expandedTypes.includes(typeKey);
 
@@ -2772,64 +2922,64 @@ const types = Object.keys(departmentData)
                               <div className="pt-1 flex justify-end space-x-2">
                                 {isEditing ? (
                                   <>
-<button
-  onClick={async () => {
-    try {
-      // Get the token from localStorage or wherever you store it
-      const token = localStorage.getItem('authToken') ||
-        localStorage.getItem('token') ||
-        localStorage.getItem('accessToken');
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          // Get the token from localStorage or wherever you store it
+                                          const token = localStorage.getItem('authToken') ||
+                                            localStorage.getItem('token') ||
+                                            localStorage.getItem('accessToken');
 
-      if (!token) {
-        alert('Authentication token not found. Please login again.');
-        return;
-      }
+                                          if (!token) {
+                                            alert('Authentication token not found. Please login again.');
+                                            return;
+                                          }
 
-      // Get the department ID from the users data structure
-      const departmentData = users[expandedProfile];
-      const departmentId = departmentData?.id;
+                                          // Get the department ID from the users data structure
+                                          const departmentData = users[expandedProfile];
+                                          const departmentId = departmentData?.id;
 
-      if (!departmentId) {
-        alert('Department ID not found. Please try again.');
-        return;
-      }
+                                          if (!departmentId) {
+                                            alert('Department ID not found. Please try again.');
+                                            return;
+                                          }
 
-      const response = await fetch(`https://rcs-dms.onlinetn.com/api/v1/user/${departmentId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: expandedProfileData?.name,
-          mobile: expandedProfileData?.mobile,
-        }),
-      });
+                                          const response = await fetch(`https://rcs-dms.onlinetn.com/api/v1/user/${departmentId}`, {
+                                            method: 'PUT',
+                                            headers: {
+                                              'Content-Type': 'application/json',
+                                              'Authorization': `Bearer ${token}`,
+                                            },
+                                            body: JSON.stringify({
+                                              name: expandedProfileData?.name,
+                                              mobile: expandedProfileData?.mobile,
+                                            }),
+                                          });
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error('API Error:', errorData);
-        throw new Error(`Failed to update profile: ${response.status}`);
-      }
+                                          if (!response.ok) {
+                                            const errorData = await response.text();
+                                            console.error('API Error:', errorData);
+                                            throw new Error(`Failed to update profile: ${response.status}`);
+                                          }
 
-      // Success handling
-      console.log('Profile updated successfully');
-      setIsEditing(false);
+                                          // Success handling
+                                          console.log('Profile updated successfully');
+                                          setIsEditing(false);
 
-      // Show success alert and feedback
-      alert('Profile updated successfully!');
-      setSubmitSuccess(true);
-      setTimeout(() => setSubmitSuccess(false), 3000);
+                                          // Show success alert and feedback
+                                          alert('Profile updated successfully!');
+                                          setSubmitSuccess(true);
+                                          setTimeout(() => setSubmitSuccess(false), 3000);
 
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      alert('Failed to update profile. Please try again.');
-    }
-  }}
-  className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
->
-  Save
-</button>
+                                        } catch (error) {
+                                          console.error('Error updating profile:', error);
+                                          alert('Failed to update profile. Please try again.');
+                                        }
+                                      }}
+                                      className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                                    >
+                                      Save
+                                    </button>
 
                                     <button
                                       onClick={() => setIsEditing(false)}

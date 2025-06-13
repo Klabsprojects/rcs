@@ -4,14 +4,14 @@ import { API_BASE_URL } from '../services/api';
 
 const InlineSegmentDietPlannerForm = ({ segment, onSavePlan, onCancel, loading, groceryItems, getAllowedUnits, editingPlan = null, isEditing = false }) => {
   const [formType, setFormType] = useState('per-day');
-  const [items, setItems] = useState([{ name: '', quantity: '', unit: 'gram' }]);
+  const [items, setItems] = useState([{ name: '', quantity: '', unit: 'Grams' }]);
 const [fixedGroups, setFixedGroups] = useState(new Set());
   const [weeklyPlanGroups, setWeeklyPlanGroups] = useState([
     {
       id: 1,
       name: 'Days Selected Plans',
       days: [],
-      items: [{ name: '', quantity: '', unit: 'gram' }]
+      items: [{ name: '', quantity: '', unit: 'Grams' }]
     }
   ]);
 
@@ -58,7 +58,7 @@ useEffect(() => {
             id: groupId++,
             name: `${day} Plans`,
             days: [day],
-            items: items.length > 0 ? items : [{ name: '', quantity: '', unit: 'gram' }]
+            items: items.length > 0 ? items : [{ name: '', quantity: '', unit: 'Grams' }]
           });
         }
       });
@@ -125,13 +125,13 @@ useEffect(() => {
     setWeeklyPlanGroups(newGroups);
   };
 
-  const addItem = () => setItems([...items, { name: '', quantity: '', unit: 'gram' }]);
+  const addItem = () => setItems([...items, { name: '', quantity: '', unit: 'Grams' }]);
   const removeItem = (index) => setItems(items.filter((_, i) => i !== index));
 
   const addGroupItem = (groupId) => {
     const newGroups = weeklyPlanGroups.map(group => {
       if (group.id === groupId) {
-        return { ...group, items: [...group.items, { name: '', quantity: '', unit: 'gram' }] };
+        return { ...group, items: [...group.items, { name: '', quantity: '', unit: 'Grams' }] };
       }
       return group;
     });
@@ -153,7 +153,7 @@ useEffect(() => {
       id: nextGroupId,
       name: 'Days Selected Plans',
       days: [],
-      items: [{ name: '', quantity: '', unit: 'gram' }]
+      items: [{ name: '', quantity: '', unit: 'Grams' }]
     };
     setWeeklyPlanGroups([...weeklyPlanGroups, newGroup]);
     setNextGroupId(nextGroupId + 1);
@@ -190,7 +190,7 @@ const handleFixGroup = (groupId) => {
       id: nextGroupId,
       name: 'Days Selected Plans',
       days: [],
-      items: [{ name: '', quantity: '', unit: 'gram' }]
+      items: [{ name: '', quantity: '', unit: 'Grams' }]
     };
     setWeeklyPlanGroups(prev => [...prev, newGroup]);
     setNextGroupId(prev => prev + 1);
@@ -252,14 +252,14 @@ if (formType === 'per-week') {
     }
     
     // Reset form
-    setItems([{ name: '', quantity: '', unit: 'gram' }]);
+    setItems([{ name: '', quantity: '', unit: 'Grams' }]);
 setFixedGroups(new Set());
     setWeeklyPlanGroups([
       {
         id: 1,
         name: 'Days Selected Plans',
         days: [],
-        items: [{ name: '', quantity: '', unit: 'gram' }]
+        items: [{ name: '', quantity: '', unit: 'Grams' }]
       }
     ]);
     setNextGroupId(2);
@@ -414,11 +414,11 @@ setFixedGroups(new Set());
 >
   {getAllowedUnits(item.name).map(unitOption => (
     <option key={unitOption} value={unitOption}>
-      {unitOption === 'gram' ? 'grams' : 
-       unitOption === 'ml' ? 'ml' : 
-       unitOption === 'piece' ? 'pcs' : 
-       unitOption === 'kg' ? 'kg' : 
-       unitOption === 'L' ? 'liters' : unitOption}
+{unitOption === 'Grams' ? 'Grams' : 
+ unitOption === 'Ml' ? 'Ml' : 
+ unitOption === 'Pcs' ? 'Pcs' : 
+ unitOption === 'Kg' ? 'Kg' : 
+ unitOption === 'Liter' ? 'Liter' : unitOption}
     </option>
   ))}
 </select>
@@ -488,11 +488,11 @@ setFixedGroups(new Set());
 >
   {getAllowedUnits(item.name).map(unitOption => (
     <option key={unitOption} value={unitOption}>
-      {unitOption === 'gram' ? 'grams' : 
-       unitOption === 'ml' ? 'ml' : 
-       unitOption === 'piece' ? 'pcs' : 
-       unitOption === 'kg' ? 'kg' : 
-       unitOption === 'L' ? 'liters' : unitOption}
+{unitOption === 'Grams' ? 'Grams' : 
+ unitOption === 'Ml' ? 'Ml' : 
+ unitOption === 'Pcs' ? 'Pcs' : 
+ unitOption === 'Kg' ? 'Kg' : 
+ unitOption === 'Liter' ? 'Liter' : unitOption}
     </option>
   ))}
 </select>
@@ -1179,6 +1179,44 @@ const DetailedPlanView = ({ segmentId, planIndex, plan }) => {
   
   if (!planData) return <div className="text-sm text-red-500">No plan data found</div>;
 
+  // Helper function to get the correct display unit and quantity
+  const getDisplayQuantityAndUnit = (itemName, apiQuantity, apiUnit) => {
+    const groceryItem = groceryItems.find(item => item.name === itemName);
+    if (!groceryItem) return { qty: apiQuantity, unit: apiUnit };
+    
+    const residentUnit = groceryItem.resident;
+    
+    // If the API unit matches resident unit, use as is
+    if (apiUnit === residentUnit) {
+      return { qty: apiQuantity, unit: residentUnit };
+    }
+    
+    // Convert from API unit to resident unit
+    let convertedQty = apiQuantity;
+    
+    // Handle common conversions
+    if (residentUnit === 'Pcs' && (apiUnit === 'Kg' || apiUnit === 'Grams')) {
+      // For pieces, if API gives weight, convert back to pieces
+      // Assuming 1 piece = some weight (this might need adjustment based on your data)
+      if (apiUnit === 'Kg') {
+        convertedQty = apiQuantity * 1000; // Convert kg to grams first
+      }
+      // You might need to define conversion factors for each item
+      // For now, let's assume direct conversion
+      convertedQty = Math.round(convertedQty);
+    } else if (residentUnit === 'Grams' && apiUnit === 'Kg') {
+      convertedQty = apiQuantity * 1000;
+    } else if (residentUnit === 'Kg' && apiUnit === 'Grams') {
+      convertedQty = apiQuantity / 1000;
+    } else if (residentUnit === 'Ml' && apiUnit === 'Liter') {
+      convertedQty = apiQuantity * 1000;
+    } else if (residentUnit === 'Liter' && apiUnit === 'Ml') {
+      convertedQty = apiQuantity / 1000;
+    }
+    
+    return { qty: convertedQty, unit: residentUnit };
+  };
+
   return (
     <div className="p-3 bg-white border border-blue-200 rounded">
      <h6 className="text-sm font-medium text-blue-800 mb-2">{planData.type}</h6>
@@ -1192,11 +1230,14 @@ const DetailedPlanView = ({ segmentId, planIndex, plan }) => {
               <div key={day} className="border-l-2 border-blue-300 pl-3">
                 <h6 className="text-sm font-medium text-blue-700">{day}:</h6>
                 <div className="ml-2 space-y-1">
-                  {Object.entries(planData[day]).map(([itemName, itemDetails]) => (
-                    <div key={itemName} className="text-sm text-gray-700">
-                      • {itemName}: {itemDetails.qty} {itemDetails.unit}
-                    </div>
-                  ))}
+                  {Object.entries(planData[day]).map(([itemName, itemDetails]) => {
+                    const { qty, unit } = getDisplayQuantityAndUnit(itemName, itemDetails.qty, itemDetails.unit);
+                    return (
+                      <div key={itemName} className="text-sm text-gray-700">
+                        • {itemName}: {qty} {unit}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -1206,11 +1247,14 @@ const DetailedPlanView = ({ segmentId, planIndex, plan }) => {
 
       {(planData.type === 'Day' || planData.type === 'Month') && (
         <div className="space-y-1">
-          {Object.entries(planData[planData.type] || {}).map(([itemName, itemDetails]) => (
-            <div key={itemName} className="text-sm text-gray-700">
-              • {itemName}: {itemDetails.qty} {itemDetails.unit}
-            </div>
-          ))}
+          {Object.entries(planData[planData.type] || {}).map(([itemName, itemDetails]) => {
+            const { qty, unit } = getDisplayQuantityAndUnit(itemName, itemDetails.qty, itemDetails.unit);
+            return (
+              <div key={itemName} className="text-sm text-gray-700">
+                • {itemName}: {qty} {unit}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -1486,7 +1530,7 @@ const PlanDetails = ({ plan, segmentData }) => {
 
 const SegmentDietPlannerForm = ({ segment, onSavePlan, loading, groceryItems, getAllowedUnits }) => {
   const [formType, setFormType] = useState('per-day');
-  const [items, setItems] = useState([{ name: '', quantity: '', unit: 'gram' }]);
+  const [items, setItems] = useState([{ name: '', quantity: '', unit: 'Grams' }]);
   const [days, setDays] = useState([]);
 
   const handleItemChange = (index, e) => {
@@ -1496,7 +1540,7 @@ const SegmentDietPlannerForm = ({ segment, onSavePlan, loading, groceryItems, ge
     setItems(newItems);
   };
 
-  const addItem = () => setItems([...items, { name: '', quantity: '', unit: 'gram' }]);
+  const addItem = () => setItems([...items, { name: '', quantity: '', unit: 'Grams' }]);
   const removeItem = (index) => setItems(items.filter((_, i) => i !== index));
 
   const toggleDay = (day) => {
@@ -1523,7 +1567,7 @@ const SegmentDietPlannerForm = ({ segment, onSavePlan, loading, groceryItems, ge
     
     const plan = { formType, items, ...(formType === 'per-week' && { days }) };
     onSavePlan(plan);
-    setItems([{ name: '', quantity: '', unit: 'gram' }]);
+    setItems([{ name: '', quantity: '', unit: 'Grams' }]);
     setDays([]);
   };
 
@@ -1622,11 +1666,13 @@ const SegmentDietPlannerForm = ({ segment, onSavePlan, loading, groceryItems, ge
 >
   {getAllowedUnits(item.name).map(unitOption => (
     <option key={unitOption} value={unitOption}>
-      {unitOption === 'gram' ? 'Grams' : 
-       unitOption === 'ml' ? 'Ml' : 
-       unitOption === 'piece' ? 'Pcs' : 
-       unitOption === 'kg' ? 'Kg' : 
-       unitOption === 'L' ? 'L' : unitOption}
+{unitOption === 'Grams' ? 'Grams' : 
+ unitOption === 'Ml' ? 'Ml' : 
+ unitOption === 'Pcs' ? 'Pcs' : 
+ unitOption === 'Kg' ? 'Kg' : 
+ unitOption === 'Liter' ? 'Liter' : unitOption}
+
+
     </option>
   ))}
 </select>
@@ -1653,7 +1699,7 @@ const SegmentDietPlannerForm = ({ segment, onSavePlan, loading, groceryItems, ge
       <div className="mt-6 flex justify-end space-x-3">
         <button
           onClick={() => {
-            setItems([{ name: '', quantity: '', unit: 'gram' }]);
+            setItems([{ name: '', quantity: '', unit: 'Grams' }]);
             setDays([]);
           }}
           className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"
@@ -1678,7 +1724,7 @@ const SegmentDietPlannerForm = ({ segment, onSavePlan, loading, groceryItems, ge
 
 const DietPlannerForm = ({ userInfo, onSavePlan, loading, groceryItems, getAllowedUnits }) => {
   const [formType, setFormType] = useState('per-day');
-  const [items, setItems] = useState([{ name: '', quantity: '', unit: 'gram' }]);
+  const [items, setItems] = useState([{ name: '', quantity: '', unit: 'Grams' }]);
   const [days, setDays] = useState([]);
 
   const handleItemChange = (index, e) => {
@@ -1688,7 +1734,7 @@ const DietPlannerForm = ({ userInfo, onSavePlan, loading, groceryItems, getAllow
     setItems(newItems);
   };
 
-  const addItem = () => setItems([...items, { name: '', quantity: '', unit: 'gram' }]);
+  const addItem = () => setItems([...items, { name: '', quantity: '', unit: 'Grams' }]);
   const removeItem = (index) => setItems(items.filter((_, i) => i !== index));
 
   const toggleDay = (day) => {
@@ -1715,7 +1761,7 @@ const DietPlannerForm = ({ userInfo, onSavePlan, loading, groceryItems, getAllow
     
     const plan = { formType, items, ...(formType === 'per-week' && { days }) };
     onSavePlan(plan);
-    setItems([{ name: '', quantity: '', unit: 'gram' }]);
+    setItems([{ name: '', quantity: '', unit: 'Grams' }]);
     setDays([]);
   };
 
@@ -1828,11 +1874,11 @@ const DietPlannerForm = ({ userInfo, onSavePlan, loading, groceryItems, getAllow
 >
   {getAllowedUnits(item.name).map(unitOption => (
     <option key={unitOption} value={unitOption}>
-      {unitOption === 'gram' ? 'Grams' : 
-       unitOption === 'ml' ? 'Ml' : 
-       unitOption === 'piece' ? 'Pcs' : 
-       unitOption === 'kg' ? 'Kg' : 
-       unitOption === 'L' ? 'L' : unitOption}
+{unitOption === 'Grams' ? 'Grams' : 
+ unitOption === 'Ml' ? 'Ml' : 
+ unitOption === 'Pcs' ? 'Pcs' : 
+ unitOption === 'Kg' ? 'Kg' : 
+ unitOption === 'Liter' ? 'Liter' : unitOption}
     </option>
   ))}
 </select>
@@ -1859,7 +1905,7 @@ const DietPlannerForm = ({ userInfo, onSavePlan, loading, groceryItems, getAllow
       <div className="mt-6 flex justify-end space-x-3">
         <button
           onClick={() => {
-            setItems([{ name: '', quantity: '', unit: 'gram' }]);
+            setItems([{ name: '', quantity: '', unit: 'Grams' }]);
             setDays([]);
           }}
           className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"

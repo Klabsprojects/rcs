@@ -61,7 +61,7 @@ const Header = () => {
     const buttons = [];
 
     if (userRole === 'rcs-admin') {
-      // For rcs-admin: show User and Indent Request
+      // For rcs-admin: show User, Items, and Indent Request
       buttons.push(
         <a
           key="user"
@@ -72,6 +72,19 @@ const Header = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
           </svg>
           <span className="font-medium text-sm">User</span>
+        </a>
+      );
+
+      buttons.push(
+        <a
+          key="items"
+          href="/item"
+          className="flex items-center space-x-2 px-3 py-2 text-black hover:text-gray-700 hover:bg-sky-500 hover:bg-opacity-20 rounded-lg transition-all duration-200"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+          <span className="font-medium text-sm">Items</span>
         </a>
       );
 
@@ -256,7 +269,7 @@ const Header = () => {
           className="flex items-center space-x-2 px-3 py-2 text-black hover:text-gray-700 hover:bg-sky-500 hover:bg-opacity-20 rounded-lg transition-all duration-200"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 515.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 919.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 919.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
           <span className="font-medium text-sm">Diet Plan</span>
         </a>
@@ -302,36 +315,22 @@ const Header = () => {
             {/* Government Logo - Left */}
             <div className="flex-shrink-0">
               <img
-                src="images/logo.png"
+                src="/images/logo.png"
                 alt="Department Logo"
                 className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 object-contain rounded-md"
               />
             </div>
 
-            {/* Title + Department Logo - Together */}
-            <div className="flex items-center space-x-3 min-w-0 flex-1">
-              <div className="min-w-0">
-                <h1 className="text-sm sm:text-lg lg:text-xl xl:text-2xl font-bold text-white leading-tight">
-                  கூட்டுறவுச் சங்கங்களின் பதிவாளர்
-                </h1>
-                <p className="text-xs sm:text-base lg:text-lg xl:text-xl text-white font-medium leading-tight">
-                  REGISTRAR OF COOPERATIVE SOCIETIES
-                </p>
-              </div>
-
-              {/* Department Logo - Right of Title */}
-              <div className="flex-shrink-0">
-                <img
-                  src="images/newlogo.jpg"
-                  alt="Government Logo"
-                  className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 object-contain rounded-md"
-                />
-              </div>
+            {/* Title - Center */}
+            <div className="min-w-0 flex-1">
+              <h1 className="text-sm sm:text-lg lg:text-xl xl:text-2xl font-bold text-white leading-tight">
+                கூட்டுறவுச் சங்கங்களின் பதிவாளர்
+              </h1>
+              <p className="text-xs sm:text-base lg:text-lg xl:text-xl text-white font-medium leading-tight">
+                REGISTRAR OF COOPERATIVE SOCIETIES
+              </p>
             </div>
           </div>
-
-
-
 
           {/* Right Section - Navigation Buttons and Profile */}
           <div className="flex items-center space-x-3 flex-shrink-0">
@@ -435,10 +434,15 @@ const Header = () => {
                   </div>
                 </>
               )}
+            </div>
 
-
-
-
+            {/* Department Logo - After Profile Icon */}
+            <div className="flex-shrink-0">
+              <img
+                src="/images/newlogo.jpg"
+                alt="Government Logo"
+                className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 object-contain rounded-md"
+              />
             </div>
           </div>
         </div>

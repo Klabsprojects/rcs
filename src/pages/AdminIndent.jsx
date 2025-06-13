@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../services/api';
 
 const IndentListing = () => {
+  const navigate = useNavigate();
   const [approvedOrders, setApprovedOrders] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -89,6 +91,13 @@ const IndentListing = () => {
     setShowExpandedView(false);
     setExpandedOrder(null);
     setOrderDetails(null);
+  };
+
+  // Handle dispatch order navigation
+  const handleDispatchOrder = () => {
+    if (expandedOrder) {
+      navigate(`/dispatch-order/${expandedOrder}`);
+    }
   };
 
   // Format date
@@ -217,7 +226,6 @@ const IndentListing = () => {
                             <th className="border border-gray-300 px-4 py-2 text-left">S.No</th>
                             <th className="border border-gray-300 px-4 py-2 text-left">Item Name</th>
                             <th className="border border-gray-300 px-4 py-2 text-center">Order Quantity</th>
-                            <th className="border border-gray-300 px-4 py-2 text-center">Unit</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -225,8 +233,7 @@ const IndentListing = () => {
                             <tr key={item.id} className="hover:bg-gray-50">
                               <td className="border border-gray-300 px-4 py-2">{itemIndex + 1}.</td>
                               <td className="border border-gray-300 px-4 py-2">{item.name}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{item.order}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{item.unit}</td>
+                              <td className="border border-gray-300 px-4 py-2 text-center">{item.order} {item.unit}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -238,6 +245,19 @@ const IndentListing = () => {
                     <p>No items found for this order</p>
                   </div>
                 )}
+
+                {/* Dispatch Order Button */}
+                <div className="flex justify-center mt-6">
+                  <button
+                    onClick={handleDispatchOrder}
+                    className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2 font-medium"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    Proceed with Order
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
