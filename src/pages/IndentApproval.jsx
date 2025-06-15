@@ -24,7 +24,7 @@ const IndentApproval = () => {
       setLoading(true);
       try {
         const token = localStorage.getItem('authToken');
-        const response = await fetch(`${API_BASE_URL}/order/indent/list`, {
+        const response = await fetch(`${API_BASE_URL}/indent/list`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -56,7 +56,7 @@ const IndentApproval = () => {
     setDetailsError('');
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/order/${orderId}`, {
+      const response = await fetch(`${API_BASE_URL}/indent/${orderId}/detail`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -87,7 +87,7 @@ const IndentApproval = () => {
     
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/order/${orderId}`, {
+      const response = await fetch(`${API_BASE_URL}/indent/${orderId}/detail`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -167,7 +167,7 @@ setOpenIndentItems([...openIndentItems, { itemId: '', name: '', quantity: '', un
       setListLoading(true);
       try {
         const token = localStorage.getItem('authToken');
-        const response = await fetch(`${API_BASE_URL}/order/indent/list`, {
+        const response = await fetch(`${API_BASE_URL}/indent/list`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -228,7 +228,7 @@ setOpenIndentItems([...openIndentItems, { itemId: '', name: '', quantity: '', un
     setDetailsError('');
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/order/${orderId}`, {
+      const response = await fetch(`${API_BASE_URL}/indent/${orderId}/detail`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -427,7 +427,7 @@ setOpenIndentItems([...openIndentItems, { itemId: '', name: '', quantity: '', un
           const fetchIndents = async () => {
             try {
               const token = localStorage.getItem('authToken');
-              const response = await fetch(`${API_BASE_URL}/order/indent/list`, {
+              const response = await fetch(`${API_BASE_URL}/indent/list`, {
                 method: 'GET',
                 headers: {
                   'Authorization': `Bearer ${token}`,
@@ -493,7 +493,7 @@ setOpenIndentItems([...openIndentItems, { itemId: '', name: '', quantity: '', un
 
         console.log('Submitting open indent with payload:', payload);
 
-        const response = await fetch(`${API_BASE_URL}/order/indent`, {
+        const response = await fetch(`${API_BASE_URL}/indent`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -515,7 +515,7 @@ setOpenIndentItems([...openIndentItems, { itemId: '', name: '', quantity: '', un
           const fetchIndents = async () => {
             try {
               const token = localStorage.getItem('authToken');
-              const response = await fetch(`${API_BASE_URL}/order/indent/list`, {
+              const response = await fetch(`${API_BASE_URL}/indent/list`, {
                 method: 'GET',
                 headers: {
                   'Authorization': `Bearer ${token}`,
@@ -576,7 +576,7 @@ setOpenIndentItems([...openIndentItems, { itemId: '', name: '', quantity: '', un
 
       console.log('Submitting order with payload:', orderPayload);
 
-      const response = await fetch(`${API_BASE_URL}/order/indent`, {
+      const response = await fetch(`${API_BASE_URL}/indent`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

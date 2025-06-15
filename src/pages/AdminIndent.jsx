@@ -20,7 +20,7 @@ const IndentListing = () => {
       
       try {
         const token = localStorage.getItem('authToken');
-        const response = await fetch(`${API_BASE_URL}/order/approved/list`, {
+        const response = await fetch(`${API_BASE_URL}/indent/approved/list`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -50,7 +50,7 @@ const IndentListing = () => {
  
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/order/${orderId}/approved`, {
+      const response = await fetch(`${API_BASE_URL}/indent/${orderId}/approved`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
